@@ -33,10 +33,15 @@ const HALF: I80F48 = I80F48::lit("0.5");
 // 1. Primitives
 // ============================================================================
 
-/// Fixed-point exp(x) via Taylor series. Valid for x in [-20, 20].
+/// Fixed-point exp(x) via Taylor series.
+/// For x < -20: returns 0 (exp(-20) ≈ 2e-9, negligible).
+/// For x > 20: returns error (overflow — shouldn't happen in pm-AMM math).
 /// Uses range reduction: exp(x) = exp(x/2^k)^(2^k) for |x| > 1.
 pub fn exp_fixed(x: I80F48) -> Result<I80F48> {
-    if x > I80F48::lit("20") || x < I80F48::lit("-20") {
+    if x < I80F48::lit("-20") {
+        return Ok(ZERO); // underflow to 0 — safe for phi/erf
+    }
+    if x > I80F48::lit("20") {
         return err!(PmAmmError::MathOverflow);
     }
 
@@ -121,11 +126,18 @@ pub fn ln_fixed(x: I80F48) -> Result<I80F48> {
     let mut val = x;
     let mut k: i32 = 0;
 
-    while val > TWO {
+    // Bounded loops: I80F48 max ≈ 2^79, so at most 80 halvings
+    for _ in 0..80 {
+        if val <= TWO {
+            break;
+        }
         val = val / TWO;
         k += 1;
     }
-    while val < HALF {
+    for _ in 0..80 {
+        if val >= HALF {
+            break;
+        }
         val = val * TWO;
         k -= 1;
     }
@@ -176,14 +188,27 @@ pub fn erf_fixed(x: I80F48) -> Result<I80F48> {
 }
 
 /// Standard normal PDF: phi(z) = (1/sqrt(2*pi)) * exp(-z^2/2).
+/// Returns 0 for |z| > 8 (phi(8) ≈ 5e-16, negligible).
 pub fn phi_fixed(z: I80F48) -> Result<I80F48> {
+    let eight = I80F48::lit("8");
+    if z > eight || z < ZERO - eight {
+        return Ok(ZERO);
+    }
     let neg_half_z2 = ZERO - z * z / TWO;
     let e = exp_fixed(neg_half_z2)?;
     Ok(INV_SQRT_2PI * e)
 }
 
 /// Standard normal CDF: Phi(z) = 0.5 * (1 + erf(z / sqrt(2))).
+/// Returns 0 for z < -8, 1 for z > 8.
 pub fn capital_phi_fixed(z: I80F48) -> Result<I80F48> {
+    let eight = I80F48::lit("8");
+    if z < ZERO - eight {
+        return Ok(ZERO);
+    }
+    if z > eight {
+        return Ok(ONE);
+    }
     let arg = z / SQRT_2;
     let erf_val = erf_fixed(arg)?;
     Ok(HALF * (ONE + erf_val))
@@ -534,6 +559,11 @@ mod tests {
         let e10: f64 = exp_fixed(f(10.0)).unwrap().to_num();
         let rel_err = (e10 - 22026.4657948).abs() / 22026.4657948;
         assert!(rel_err < 1e-4, "exp(10) relative error: {rel_err:.2e}");
+        // Underflow: exp(-30) → 0 (not error)
+        assert_close("exp(-30)", exp_fixed(f(-30.0)).unwrap(), 0.0, 1e-10);
+        assert_close("exp(-100)", exp_fixed(f(-100.0)).unwrap(), 0.0, 1e-10);
+        // Overflow: exp(30) → error
+        assert!(exp_fixed(f(30.0)).is_err(), "exp(30) should overflow");
     }
 
     #[test]
@@ -560,6 +590,12 @@ mod tests {
         assert_close("ln(10)", ln_fixed(f(10.0)).unwrap(), 2.302585092994046, 1e-8);
         assert_close("ln(0.01)", ln_fixed(f(0.01)).unwrap(), -4.605170185988091, 1e-6);
         assert_close("ln(100)", ln_fixed(f(100.0)).unwrap(), 4.605170185988091, 1e-6);
+        // Larger values — tests bounded range reduction loops
+        assert_close("ln(1e6)", ln_fixed(f(1e6)).unwrap(), 13.815510557964, 1e-4);
+        assert_close("ln(0.0001)", ln_fixed(f(0.0001)).unwrap(), -9.210340371976, 1e-4);
+        // Error on non-positive
+        assert!(ln_fixed(ZERO).is_err());
+        assert!(ln_fixed(f(-1.0)).is_err());
     }
 
     // ================================================================
@@ -589,6 +625,9 @@ mod tests {
             let neg: f64 = phi_fixed(f(-z)).unwrap().to_num();
             assert!((pos - neg).abs() < 1e-10, "phi symmetry broken at z={z}");
         }
+        // Extreme z: phi(10) ≈ 0, phi(-10) ≈ 0 (no error)
+        assert_close("phi(10)", phi_fixed(f(10.0)).unwrap(), 0.0, 1e-10);
+        assert_close("phi(-10)", phi_fixed(f(-10.0)).unwrap(), 0.0, 1e-10);
     }
 
     #[test]
@@ -613,6 +652,11 @@ mod tests {
             let sum: f64 = (capital_phi_fixed(f(z)).unwrap() + capital_phi_fixed(f(-z)).unwrap()).to_num();
             assert!((sum - 1.0).abs() < 1e-6, "Phi symmetry broken at z={z}: sum={sum}");
         }
+        // Extreme z: Phi(10) → 1, Phi(-10) → 0 (no error)
+        assert_close("Phi(10)", capital_phi_fixed(f(10.0)).unwrap(), 1.0, 1e-10);
+        assert_close("Phi(-10)", capital_phi_fixed(f(-10.0)).unwrap(), 0.0, 1e-10);
+        assert_close("Phi(100)", capital_phi_fixed(f(100.0)).unwrap(), 1.0, 1e-10);
+        assert_close("Phi(-100)", capital_phi_fixed(f(-100.0)).unwrap(), 0.0, 1e-10);
     }
 
     #[test]
