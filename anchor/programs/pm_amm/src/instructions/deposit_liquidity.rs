@@ -19,7 +19,7 @@ pub struct DepositLiquidity<'info> {
         has_one = collateral_mint,
         has_one = vault,
     )]
-    pub market: Account<'info, Market>,
+    pub market: Box<Account<'info, Market>>,
 
     pub collateral_mint: Account<'info, Mint>,
 

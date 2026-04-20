@@ -356,14 +356,16 @@ describe("pm_amm", () => {
         userCollateral: userUsdc,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
+      .preInstructions([ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })])
       .rpc();
 
     const usdcAfter = Number((await getAccount(provider.connection, userUsdc)).amount);
-    assert.equal(
-      usdcAfter - usdcBefore,
-      redeemAmount,
-      "Should receive exactly redeemAmount USDC"
-    );
+    const yesAfter = Number((await getAccount(provider.connection, userYes)).amount);
+    const noAfter = Number((await getAccount(provider.connection, userNo)).amount);
+
+    assert.equal(usdcAfter - usdcBefore, redeemAmount, "USDC received = redeemAmount");
+    assert.equal(yesBal - yesAfter, redeemAmount, "YES burned = redeemAmount");
+    assert.equal(noBal - noAfter, redeemAmount, "NO burned = redeemAmount");
   });
 
   // ================================================================
