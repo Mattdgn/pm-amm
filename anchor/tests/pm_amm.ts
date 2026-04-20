@@ -367,6 +367,58 @@ describe("pm_amm", () => {
   });
 
   // ================================================================
+  // Edge: redeem_pair with 0 amount
+  // ================================================================
+  it("rejects redeem_pair with 0 amount", async () => {
+    try {
+      await program.methods
+        .redeemPair(new anchor.BN(0))
+        .accounts({
+          signer: authority,
+          market: pdas.marketPda,
+          collateralMint,
+          yesMint: pdas.yesMint,
+          noMint: pdas.noMint,
+          vault: pdas.vault,
+          userYes,
+          userNo,
+          userCollateral: userUsdc,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .rpc();
+      assert.fail("Should have thrown");
+    } catch (err) {
+      assert.include(err.toString(), "InvalidBudget");
+    }
+  });
+
+  // ================================================================
+  // Edge: redeem_pair with more than balance
+  // ================================================================
+  it("rejects redeem_pair exceeding balance", async () => {
+    try {
+      await program.methods
+        .redeemPair(new anchor.BN(999_999_999_999))
+        .accounts({
+          signer: authority,
+          market: pdas.marketPda,
+          collateralMint,
+          yesMint: pdas.yesMint,
+          noMint: pdas.noMint,
+          vault: pdas.vault,
+          userYes,
+          userNo,
+          userCollateral: userUsdc,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .rpc();
+      assert.fail("Should have thrown");
+    } catch (err) {
+      assert.include(err.toString(), "InsufficientLiquidity");
+    }
+  });
+
+  // ================================================================
   // Edge: slippage revert
   // ================================================================
   it("rejects swap with too-strict slippage", async () => {

@@ -1,4 +1,6 @@
 //! Redeem 1 YES + 1 NO = 1 USDC. Does not touch pool reserves.
+//! Allowed at any time (pre/post resolution) — 1 pair always = 1 USDC.
+//! No accrual needed since reserves are not modified.
 
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount, Transfer};
@@ -52,6 +54,11 @@ pub fn handler(ctx: Context<RedeemPair>, amount: u64) -> Result<()> {
     );
     require!(
         ctx.accounts.user_no.amount >= amount,
+        PmAmmError::InsufficientLiquidity
+    );
+    // Check vault has enough USDC to pay out
+    require!(
+        ctx.accounts.vault.amount >= amount,
         PmAmmError::InsufficientLiquidity
     );
 

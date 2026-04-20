@@ -1,4 +1,6 @@
 //! Claim pending YES+NO residuals for an LP position.
+//! Intentionally allowed post-resolution and post-expiration:
+//! LPs must be able to claim accrued residuals at any time.
 
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, MintTo, Token, TokenAccount};
@@ -10,7 +12,6 @@ use crate::state::{LpPosition, Market};
 
 #[derive(Accounts)]
 pub struct ClaimLpResiduals<'info> {
-    #[account(mut)]
     pub signer: Signer<'info>,
 
     #[account(
