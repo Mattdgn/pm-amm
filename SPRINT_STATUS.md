@@ -5,13 +5,13 @@
 - [x] Sprint 1 — Setup repo (2026-04-20)
 - [x] Sprint 2 — Module math `pm_math.rs` (2026-04-20) ⚠️ CRITIQUE
 - [x] Sprint 3 — Scaffold Anchor (2026-04-20)
+- [x] Sprint 4 — Module `accrual.rs` (2026-04-20)
 
 ## In Progress
 
 (aucun)
 
 ## Pending
-- [ ] Sprint 4 — Module `accrual.rs` (5h)
 - [ ] Sprint 5 — Core instructions deposit/swap/withdraw (7h)
 - [ ] Sprint 6 — LP residuals flow (3h)
 - [ ] Sprint 7 — Resolve + claim winnings (2h)
