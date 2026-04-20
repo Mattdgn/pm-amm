@@ -55,6 +55,24 @@ export function TradePanel({ market }: { market: MarketData }) {
       const userYes = await getAssociatedTokenAddress(yesMintPda, publicKey);
       const userNo = await getAssociatedTokenAddress(noMintPda, publicKey);
 
+      // Create ATAs if they don't exist
+      const preIxs = [
+        ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }),
+      ];
+      const conn = program.provider.connection;
+      for (const [ata, mint] of [
+        [userYes, yesMintPda],
+        [userNo, noMintPda],
+        [userUsdc, USDC_MINT],
+      ] as [PublicKey, PublicKey][]) {
+        const acc = await conn.getAccountInfo(ata);
+        if (!acc) {
+          preIxs.push(
+            createAssociatedTokenAccountInstruction(publicKey, ata, publicKey, mint)
+          );
+        }
+      }
+
       const direction =
         side === "yes" ? { usdcToYes: {} } : { usdcToNo: {} };
 
@@ -73,9 +91,7 @@ export function TradePanel({ market }: { market: MarketData }) {
           userNo,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
-        .preInstructions([
-          ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }),
-        ])
+        .preInstructions(preIxs)
         .rpc();
 
       setResult(`Bought ${side.toUpperCase()} tokens. Tx: ${tx.slice(0, 8)}...`);
