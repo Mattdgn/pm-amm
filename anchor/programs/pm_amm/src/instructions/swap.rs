@@ -88,7 +88,8 @@ pub fn handler(ctx: Context<Swap>, direction: SwapDirection, amount_in: u64, min
             l_eff, I80F48::from_num(amount_in), side_in, side_out,
         )?;
 
-        output_u64 = result.output.to_num::<f64>().max(0.0) as u64;
+        output_u64 = result.output.max(I80F48::ZERO).to_num::<u64>();
+        require!(output_u64 > 0, PmAmmError::InsufficientLiquidity);
         require!(output_u64 >= min_output, PmAmmError::SlippageExceeded);
 
         market_id_bytes = market.market_id.to_le_bytes();

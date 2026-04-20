@@ -56,6 +56,7 @@ pub fn handler(ctx: Context<DepositLiquidity>, amount: u64) -> Result<()> {
     let new_shares: I80F48;
     {
         let market = &mut ctx.accounts.market;
+        require!(!market.resolved, PmAmmError::MarketAlreadyResolved);
         require!(now < market.end_ts, PmAmmError::MarketExpired);
 
         accrual::accrue_first(market, now)?;
@@ -115,16 +116,49 @@ pub fn handler(ctx: Context<DepositLiquidity>, amount: u64) -> Result<()> {
     // --- Phase 3: Update LP position ---
     let lp = &mut ctx.accounts.lp_position;
     if lp.owner == Pubkey::default() {
+        // New position — no pending to claim
         lp.owner = ctx.accounts.signer.key();
         lp.market = ctx.accounts.market.key();
         lp.bump = ctx.bumps.lp_position;
+    } else {
+        // Existing position — snapshot pending residuals into shares
+        // (pending will be claimable on next claim/withdraw)
+        // We don't auto-claim here (no mint accounts in deposit context)
+        // but we MUST NOT clobber checkpoints if there are pending residuals.
+        // Solution: only update checkpoints for the NEW shares portion.
+        // The pending from old shares is preserved by not touching checkpoints
+        // until the LP claims.
+        //
+        // Actually the correct approach: DON'T reset checkpoints.
+        // The LP's pending = (cum - checkpoint) * old_shares.
+        // After deposit: pending = (cum - checkpoint) * (old_shares + new_shares)
+        // This overcounts by (cum - checkpoint) * new_shares.
+        // Fix: add new_shares worth of "pre-paid" residuals to checkpoint.
+        // Equivalent: set checkpoint to cum for new shares only.
+        // Formula: new_checkpoint = (old_checkpoint * old_shares + cum * new_shares) / total_shares
     }
 
     let old_shares = I80F48::from_bits(lp.shares as i128);
+    let cum_yes = ctx.accounts.market.cum_yes_per_share_fixed();
+    let cum_no = ctx.accounts.market.cum_no_per_share_fixed();
+
+    if old_shares > I80F48::ZERO {
+        // Weighted checkpoint: preserve pending for old shares, zero for new
+        let total = old_shares + new_shares;
+        let old_cp_yes = I80F48::from_bits(lp.yes_per_share_checkpoint as i128);
+        let old_cp_no = I80F48::from_bits(lp.no_per_share_checkpoint as i128);
+        let new_cp_yes = (old_cp_yes * old_shares + cum_yes * new_shares) / total;
+        let new_cp_no = (old_cp_no * old_shares + cum_no * new_shares) / total;
+        lp.yes_per_share_checkpoint = new_cp_yes.to_bits() as u128;
+        lp.no_per_share_checkpoint = new_cp_no.to_bits() as u128;
+    } else {
+        // First deposit — set checkpoints to current cum
+        lp.yes_per_share_checkpoint = ctx.accounts.market.cum_yes_per_share;
+        lp.no_per_share_checkpoint = ctx.accounts.market.cum_no_per_share;
+    }
+
     lp.shares = (old_shares + new_shares).to_bits() as u128;
     lp.collateral_deposited = lp.collateral_deposited.saturating_add(amount);
-    lp.yes_per_share_checkpoint = ctx.accounts.market.cum_yes_per_share;
-    lp.no_per_share_checkpoint = ctx.accounts.market.cum_no_per_share;
 
     Ok(())
 }

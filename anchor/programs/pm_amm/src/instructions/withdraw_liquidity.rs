@@ -93,8 +93,8 @@ pub fn handler(ctx: Context<WithdrawLiquidity>, shares_to_burn: u128) -> Result<
 
         let total_yes = pending_yes + yes_from_pool;
         let total_no = pending_no + no_from_pool;
-        yes_u64 = total_yes.to_num::<f64>().max(0.0) as u64;
-        no_u64 = total_no.to_num::<f64>().max(0.0) as u64;
+        yes_u64 = total_yes.max(I80F48::ZERO).to_num::<u64>();
+        no_u64 = total_no.max(I80F48::ZERO).to_num::<u64>();
 
         // Extract signer data
         market_id_bytes = market.market_id.to_le_bytes();
