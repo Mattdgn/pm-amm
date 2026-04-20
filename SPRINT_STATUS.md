@@ -7,13 +7,13 @@
 - [x] Sprint 3 — Scaffold Anchor (2026-04-20)
 - [x] Sprint 4 — Module `accrual.rs` (2026-04-20)
 - [x] Sprint 5 — Core instructions deposit/swap/withdraw (2026-04-20)
+- [x] Sprint 6 — LP residuals flow (2026-04-20)
 
 ## In Progress
 
 (aucun)
 
 ## Pending
-- [ ] Sprint 6 — LP residuals flow (3h)
 - [ ] Sprint 7 — Resolve + claim winnings (2h)
 - [ ] Sprint 8 — Instruction `suggest_l_zero` (2h)
 - [ ] Sprint 9 — Tests complets proprietes + robustesse (7h)
