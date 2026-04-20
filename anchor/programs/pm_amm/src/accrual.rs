@@ -10,7 +10,6 @@
 use anchor_lang::prelude::*;
 use fixed::types::I80F48;
 
-use crate::errors::PmAmmError;
 use crate::pm_math;
 use crate::state::Market;
 
@@ -153,9 +152,9 @@ pub fn apply_accrual(market: &mut Market, result: &AccrualResult) {
     market.set_cum_no_per_share_fixed(result.new_cum_no_per_share);
     market.last_accrual_ts = result.new_last_accrual_ts;
 
-    // Update distribution stats (convert from fixed to u64 token amounts)
-    let yes_tokens: u64 = result.yes_released.to_num::<f64>().max(0.0) as u64;
-    let no_tokens: u64 = result.no_released.to_num::<f64>().max(0.0) as u64;
+    // Update distribution stats — floor to u64 (stats only, not used in math)
+    let yes_tokens: u64 = result.yes_released.max(I80F48::ZERO).to_num::<u64>();
+    let no_tokens: u64 = result.no_released.max(I80F48::ZERO).to_num::<u64>();
     market.total_yes_distributed = market.total_yes_distributed.saturating_add(yes_tokens);
     market.total_no_distributed = market.total_no_distributed.saturating_add(no_tokens);
 }
@@ -506,5 +505,135 @@ mod tests {
         let expected = I80F48::from_num(5000); // 5 * 1000
         assert_eq!(py, expected);
         assert_eq!(pn, expected);
+    }
+
+    // --- Test 10: now > end_ts (clamp) ---
+    #[test]
+    fn test_accrual_past_expiration() {
+        let start = 0;
+        let end = 86400 * 7;
+        let market = make_market(10.0, 0.5, end, start, 1000.0);
+
+        let x_old: f64 = market.reserve_yes_fixed().to_num();
+
+        // now = 2 weeks past end — should clamp and release all
+        let result = compute_accrual(&market, end + 86400 * 7).unwrap();
+        assert!(!result.is_noop);
+        let yr: f64 = result.yes_released.to_num();
+        assert!((yr - x_old).abs() < 0.01, "Should release all YES: {yr} vs {x_old}");
+        assert_eq!(result.new_reserve_yes, I80F48::ZERO);
+        assert_eq!(result.new_last_accrual_ts, end); // clamped to end_ts
+    }
+
+    // --- Test 11: multi-step accrual → lp_pending integration ---
+    #[test]
+    fn test_accrual_then_pending() {
+        let start = 0;
+        let end = 86400 * 7;
+        let mut market = make_market(10.0, 0.5, end, start, 1000.0);
+
+        // LP checkpoint starts at 0 (deposited at start)
+        let lp_shares = I80F48::from_num(1000);
+        let cp_yes = I80F48::ZERO;
+        let cp_no = I80F48::ZERO;
+
+        // Accrue 1 day
+        let r1 = compute_accrual(&market, 86400).unwrap();
+        apply_accrual(&mut market, &r1);
+
+        // Pending should equal released (single LP owns all shares)
+        let (py, pn) = compute_lp_pending(
+            lp_shares, cp_yes, cp_no,
+            market.cum_yes_per_share_fixed(),
+            market.cum_no_per_share_fixed(),
+        );
+        let py_f: f64 = py.to_num();
+        let yr_f: f64 = r1.yes_released.to_num();
+        assert!(
+            (py_f - yr_f).abs() < 0.01,
+            "Pending YES should equal released: {py_f} vs {yr_f}"
+        );
+
+        // Accrue 1 more day — pending should accumulate
+        let r2 = compute_accrual(&market, 86400 * 2).unwrap();
+        apply_accrual(&mut market, &r2);
+
+        let (py2, _) = compute_lp_pending(
+            lp_shares, cp_yes, cp_no,
+            market.cum_yes_per_share_fixed(),
+            market.cum_no_per_share_fixed(),
+        );
+        let py2_f: f64 = py2.to_num();
+        let total: f64 = r1.yes_released.to_num::<f64>() + r2.yes_released.to_num::<f64>();
+        assert!(
+            (py2_f - total).abs() < 0.1,
+            "Accumulated pending should match sum: {py2_f} vs {total}"
+        );
+    }
+
+    // --- Test 12: exact oracle cross-validation ---
+    #[test]
+    fn test_accrual_oracle_values() {
+        // From Python oracle: L_0=10, P=0.5, 7 days, accrual after 1 day
+        // delta_x = 230.1453486055, delta_y = 230.1453486055
+        let start = 0;
+        let end = 86400 * 7;
+        let market = make_market(10.0, 0.5, end, start, 1000.0);
+
+        let result = compute_accrual(&market, 86400).unwrap();
+        let yr: f64 = result.yes_released.to_num();
+        let nr: f64 = result.no_released.to_num();
+
+        assert!(
+            (yr - 230.145).abs() < 1.0,
+            "YES released: got {yr:.3}, expected ~230.145"
+        );
+        assert!(
+            (nr - 230.145).abs() < 1.0,
+            "NO released: got {nr:.3}, expected ~230.145"
+        );
+        // Symmetry at P=0.5
+        assert!((yr - nr).abs() < 0.01, "YES != NO at P=0.5: {yr} vs {nr}");
+    }
+
+    // --- Test 13: exact oracle at P=0.3 (asymmetric) ---
+    #[test]
+    fn test_accrual_oracle_p03() {
+        // Python: P=0.3, delta_x=412.34, delta_y=109.82
+        // Ratio delta_y/delta_x = y_old/x_old = 0.2663
+        let start = 0;
+        let end = 86400 * 7;
+        let market = make_market(10.0, 0.3, end, start, 1000.0);
+
+        let result = compute_accrual(&market, 86400).unwrap();
+        let yr: f64 = result.yes_released.to_num();
+        let nr: f64 = result.no_released.to_num();
+
+        assert!(
+            (yr - 412.34).abs() < 2.0,
+            "YES released at P=0.3: got {yr:.3}, expected ~412.34"
+        );
+        assert!(
+            (nr - 109.82).abs() < 2.0,
+            "NO released at P=0.3: got {nr:.3}, expected ~109.82"
+        );
+        // Ratio must match reserves ratio
+        let ratio = nr / yr;
+        assert!(
+            (ratio - 0.2663).abs() < 0.01,
+            "Release ratio {ratio:.4} should be ~0.2663"
+        );
+    }
+
+    // --- Test 14: resolved market → noop ---
+    #[test]
+    fn test_accrual_resolved_noop() {
+        let start = 0;
+        let end = 86400 * 7;
+        let mut market = make_market(10.0, 0.5, end, start, 1000.0);
+        market.resolved = true;
+
+        let result = compute_accrual(&market, 86400).unwrap();
+        assert!(result.is_noop, "Resolved market should be noop");
     }
 }
