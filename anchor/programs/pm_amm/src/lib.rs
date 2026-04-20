@@ -58,4 +58,12 @@ pub mod pm_amm {
     pub fn redeem_pair(ctx: Context<RedeemPair>, amount: u64) -> Result<()> {
         instructions::redeem_pair::handler(ctx, amount)
     }
+
+    pub fn resolve_market(ctx: Context<ResolveMarket>, winning_side: Side) -> Result<()> {
+        instructions::resolve_market::handler(ctx, winning_side)
+    }
+
+    pub fn claim_winnings(ctx: Context<ClaimWinnings>, amount: u64) -> Result<()> {
+        instructions::claim_winnings::handler(ctx, amount)
+    }
 }
