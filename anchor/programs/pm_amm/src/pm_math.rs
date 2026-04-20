@@ -691,4 +691,105 @@ mod tests {
             "V(0.5) should be ~1000, got {v}"
         );
     }
+
+    // --- Full cross-validation against Python oracle ---
+
+    #[test]
+    fn test_cross_validation_print() {
+        println!("\n=== RUST CROSS-VALIDATION ===\n");
+
+        // Phi_inv (most critical function)
+        println!("--- Phi_inv ---");
+        for p in [0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99] {
+            let v: f64 = capital_phi_inv_fixed(f(p)).unwrap().to_num();
+            println!("  Phi_inv({p}) = {v:.12}");
+        }
+
+        // Reserves
+        println!("\n--- reserves_from_price (L=1000) ---");
+        let l = f(1000.0);
+        for p in [0.1, 0.3, 0.5, 0.7, 0.9] {
+            let (x, y) = reserves_from_price(f(p), l).unwrap();
+            let xf: f64 = x.to_num();
+            let yf: f64 = y.to_num();
+            println!("  P={p}: x={xf:.6}, y={yf:.6}, y-x={:.6}", yf - xf);
+        }
+
+        // Pool value
+        println!("\n--- pool_value (L=1000) ---");
+        for p in [0.1, 0.3, 0.5, 0.7, 0.9] {
+            let v: f64 = pool_value(f(p), l).unwrap().to_num();
+            println!("  V({p}) = {v:.10}");
+        }
+
+        // Invariant
+        println!("\n--- invariant check ---");
+        for p in [0.1, 0.3, 0.5, 0.7, 0.9] {
+            let (x, y) = reserves_from_price(f(p), l).unwrap();
+            let inv: f64 = invariant_value(x, y, l).unwrap().to_num();
+            println!("  P={p}: inv={inv:.2e}");
+        }
+
+        // Swap
+        println!("\n--- swap USDC->YES at P=0.5, L=1000 ---");
+        let (x, y) = reserves_from_price(HALF, l).unwrap();
+        for delta in [10.0, 50.0, 100.0] {
+            let r = compute_swap_output(x, y, l, f(delta), SwapSide::Usdc, SwapSide::Yes).unwrap();
+            let out: f64 = r.output.to_num();
+            let pn: f64 = r.price_new.to_num();
+            println!("  {delta} USDC -> {out:.10} YES, price_new={pn:.10}");
+        }
+
+        // suggest_l_zero
+        println!("\n--- suggest_l_zero ---");
+        let l0 = suggest_l_zero_for_budget(1000, 86400 * 7).unwrap();
+        let l_eff_val = l_effective(l0, 86400 * 7).unwrap();
+        let v: f64 = pool_value(HALF, l_eff_val).unwrap().to_num();
+        let l0f: f64 = l0.to_num();
+        let lef: f64 = l_eff_val.to_num();
+        println!("  L_0={l0f:.12}, L_eff={lef:.6}, V(0.5)={v:.10}");
+    }
+
+    /// Strict cross-validation with exact Python oracle values.
+    /// These are the EXACT outputs from oracle/pm_amm_math.py.
+    #[test]
+    fn test_strict_oracle_match() {
+        let l = f(1000.0);
+
+        // Pool value V(0.5) = 398.9422804014 (Python oracle)
+        let v05: f64 = pool_value(HALF, l).unwrap().to_num();
+        assert!((v05 - 398.9422804014).abs() < 0.5, "V(0.5) = {v05}");
+
+        // Pool value symmetric: V(0.3) = V(0.7) = 347.6926142001
+        let v03: f64 = pool_value(f(0.3), l).unwrap().to_num();
+        let v07: f64 = pool_value(f(0.7), l).unwrap().to_num();
+        assert!((v03 - 347.6926).abs() < 1.0, "V(0.3) = {v03}");
+        assert!((v03 - v07).abs() < 1.0, "V(0.3) != V(0.7): {v03} vs {v07}");
+
+        // Reserves at P=0.5: x = y = 398.94
+        let (x5, y5) = reserves_from_price(HALF, l).unwrap();
+        let x5f: f64 = x5.to_num();
+        let y5f: f64 = y5.to_num();
+        assert!((x5f - y5f).abs() < 0.1, "x != y at P=0.5: {x5f} vs {y5f}");
+        assert!((x5f - 398.94).abs() < 1.0, "x(0.5) = {x5f}");
+
+        // Reserves at P=0.1: x=1328.89, y=47.34 (Python oracle)
+        let (x1, y1) = reserves_from_price(f(0.1), l).unwrap();
+        let x1f: f64 = x1.to_num();
+        let y1f: f64 = y1.to_num();
+        assert!((x1f - 1328.89).abs() < 2.0, "x(0.1) = {x1f}, expected 1328.89");
+        assert!((y1f - 47.34).abs() < 2.0, "y(0.1) = {y1f}, expected 47.34");
+
+        // Swap: 100 USDC -> ~186.207 YES (Python oracle)
+        let (x, y) = reserves_from_price(HALF, l).unwrap();
+        let r = compute_swap_output(x, y, l, f(100.0), SwapSide::Usdc, SwapSide::Yes).unwrap();
+        let out: f64 = r.output.to_num();
+        assert!((out - 186.207).abs() < 2.0, "swap 100 USDC->YES = {out}, expected ~186.207");
+        let pn: f64 = r.price_new.to_num();
+        assert!((pn - 0.5739).abs() < 0.01, "price_new = {pn}, expected ~0.5739");
+
+        // suggest_l_zero: budget=1000, 7d -> L_0 = 3.22317616571
+        let l0: f64 = suggest_l_zero_for_budget(1000, 86400 * 7).unwrap().to_num();
+        assert!((l0 - 3.22317).abs() < 0.01, "L_0 = {l0}, expected ~3.22318");
+    }
 }
