@@ -22,7 +22,8 @@ pub struct InitializeMarket<'info> {
     )]
     pub market: Account<'info, Market>,
 
-    /// The collateral mint (USDC or mock, decimals 6).
+    /// The collateral mint (USDC or mock). Must have 6 decimals.
+    #[account(constraint = collateral_mint.decimals == 6 @ PmAmmError::InvalidBudget)]
     pub collateral_mint: Account<'info, Mint>,
 
     #[account(

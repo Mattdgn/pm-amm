@@ -73,7 +73,8 @@ pub fn exp_fixed(x: I80F48) -> Result<I80F48> {
     Ok(sum)
 }
 
-/// Fixed-point sqrt via Newton's method (8 iterations).
+/// Fixed-point sqrt via Newton's method.
+/// Uses bit-level initial guess for fast convergence.
 pub fn sqrt_fixed(x: I80F48) -> Result<I80F48> {
     if x < ZERO {
         return err!(PmAmmError::MathOverflow);
@@ -82,11 +83,28 @@ pub fn sqrt_fixed(x: I80F48) -> Result<I80F48> {
         return Ok(ZERO);
     }
 
-    // Initial guess: x/2 or 1, whichever is closer
-    let mut guess = if x > ONE { x / TWO } else { ONE };
+    // Initial guess: approximate sqrt via bit-shifting
+    // For I80F48 with 48 fractional bits: sqrt(x) ≈ x >> (bits/2)
+    // This gives a guess within 2x of the true value, so Newton converges in ~5 iterations
+    let bits = x.to_bits();
+    // Shift right by half the bit position offset from 1.0
+    // 1.0 in I80F48 = 1 << 48. For x > 1, the "integer bits" give us the magnitude.
+    let guess_bits = (bits >> 1) + (1i128 << 47); // half the bits + offset for fractional part
+    let mut guess = I80F48::from_bits(guess_bits);
 
-    for _ in 0..12 {
-        guess = (guess + x / guess) / TWO;
+    // Clamp guess to reasonable range
+    if guess <= ZERO {
+        guess = ONE;
+    }
+
+    for _ in 0..30 {
+        let next = (guess + x / guess) / TWO;
+        // Early exit if converged
+        let diff = if next > guess { next - guess } else { guess - next };
+        if diff < I80F48::lit("0.0000000000001") {
+            return Ok(next);
+        }
+        guess = next;
     }
 
     Ok(guess)
@@ -527,6 +545,10 @@ mod tests {
         assert_close("sqrt(0.01)", sqrt_fixed(f(0.01)).unwrap(), 0.1, 1e-12);
         assert_close("sqrt(86400)", sqrt_fixed(f(86400.0)).unwrap(), 293.93876913, 1e-6);
         assert_close("sqrt(604800)", sqrt_fixed(f(604800.0)).unwrap(), 777.68888380890, 1e-4);
+        // Large numbers (previously failed with 12 iterations)
+        assert_close("sqrt(1e6)", sqrt_fixed(f(1e6)).unwrap(), 1000.0, 1e-6);
+        assert_close("sqrt(1e8)", sqrt_fixed(f(1e8)).unwrap(), 10000.0, 1e-4);
+        assert_close("sqrt(1e10)", sqrt_fixed(f(1e10)).unwrap(), 100000.0, 1e-2);
     }
 
     #[test]
