@@ -65,6 +65,67 @@ export function formatPrice(price: number): string {
   return `${(price * 100).toFixed(1)}%`;
 }
 
+/** Estimate swap output (client-side, for preview) */
+export function estimateSwapOutput(
+  reserveYes: number,
+  reserveNo: number,
+  lEff: number,
+  amountIn: number,
+  side: "yes" | "no"
+): { output: number; priceAfter: number; priceImpact: number } {
+  if (lEff <= 0 || amountIn <= 0) {
+    return { output: 0, priceAfter: 0.5, priceImpact: 0 };
+  }
+
+  const priceBefore = priceFromReserves(reserveYes, reserveNo, lEff);
+
+  // USDC->YES: y_new = y + amountIn, find x_new via binary search on u
+  // USDC->NO:  x_new = x + amountIn, find y_new via binary search on u
+  if (side === "yes") {
+    const yNew = reserveNo + amountIn;
+    const xNew = findXFromY(yNew, lEff);
+    const output = amountIn + (reserveYes - xNew);
+    const priceAfter = priceFromReserves(xNew, yNew, lEff);
+    return {
+      output: Math.max(0, output),
+      priceAfter,
+      priceImpact: Math.abs(priceAfter - priceBefore) / priceBefore,
+    };
+  } else {
+    const xNew = reserveYes + amountIn;
+    const yNew = findYFromX(xNew, lEff);
+    const output = amountIn + (reserveNo - yNew);
+    const priceAfter = priceFromReserves(xNew, yNew, lEff);
+    return {
+      output: Math.max(0, output),
+      priceAfter,
+      priceImpact: Math.abs(priceAfter - priceBefore) / priceBefore,
+    };
+  }
+}
+
+function findXFromY(yTarget: number, lEff: number): number {
+  let lo = -6, hi = 6;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    const yMid = lEff * (mid * capitalPhi(mid) + phi(mid));
+    if (yMid < yTarget) lo = mid; else hi = mid;
+  }
+  const u = (lo + hi) / 2;
+  return lEff * (u * capitalPhi(u) + phi(u) - u);
+}
+
+function findYFromX(xTarget: number, lEff: number): number {
+  let lo = -6, hi = 6;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    const xMid = lEff * (mid * capitalPhi(mid) + phi(mid) - mid);
+    if (xMid > xTarget) lo = mid; else hi = mid;
+  }
+  const u = (lo + hi) / 2;
+  return lEff * (u * capitalPhi(u) + phi(u));
+}
+
 /** Format time remaining */
 export function formatTimeRemaining(endTs: number): string {
   const now = Math.floor(Date.now() / 1000);

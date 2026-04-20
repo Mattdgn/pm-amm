@@ -1,18 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { useProgram } from "@/hooks/use-program";
-import { formatUsdc } from "@/lib/pm-math";
+import { formatUsdc, formatPrice, estimateSwapOutput } from "@/lib/pm-math";
 import type { MarketData } from "@/hooks/use-markets";
 import {
   PublicKey,
   ComputeBudgetProgram,
-  SystemProgram,
 } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
@@ -29,6 +27,19 @@ export function TradePanel({ market }: { market: MarketData }) {
   const program = useProgram();
   const { publicKey } = useWallet();
 
+  // Live preview
+  const preview = useMemo(() => {
+    const val = parseFloat(amount);
+    if (!val || val <= 0 || market.lEff <= 0) return null;
+    return estimateSwapOutput(
+      market.reserveYes,
+      market.reserveNo,
+      market.lEff,
+      val,
+      side
+    );
+  }, [amount, side, market.reserveYes, market.reserveNo, market.lEff]);
+
   const handleTrade = async () => {
     if (!program || !publicKey || !amount) return;
     setLoading(true);
@@ -39,71 +50,52 @@ export function TradePanel({ market }: { market: MarketData }) {
       const lamports = Math.floor(parseFloat(amount) * 1e6);
 
       const yesMintPda = PublicKey.findProgramAddressSync(
-        [Buffer.from("yes_mint"), marketPda.toBuffer()],
-        program.programId
+        [Buffer.from("yes_mint"), marketPda.toBuffer()], program.programId
       )[0];
       const noMintPda = PublicKey.findProgramAddressSync(
-        [Buffer.from("no_mint"), marketPda.toBuffer()],
-        program.programId
+        [Buffer.from("no_mint"), marketPda.toBuffer()], program.programId
       )[0];
       const vaultPda = PublicKey.findProgramAddressSync(
-        [Buffer.from("vault"), marketPda.toBuffer()],
-        program.programId
+        [Buffer.from("vault"), marketPda.toBuffer()], program.programId
       )[0];
 
       const userUsdc = await getAssociatedTokenAddress(USDC_MINT, publicKey);
       const userYes = await getAssociatedTokenAddress(yesMintPda, publicKey);
       const userNo = await getAssociatedTokenAddress(noMintPda, publicKey);
 
-      // Step 1: Create missing ATAs in a separate tx (so Phantom simulation works)
+      // Create missing ATAs in separate tx
       const conn = program.provider.connection;
       const ataIxs: any[] = [];
       for (const [ata, mint] of [
-        [userYes, yesMintPda],
-        [userNo, noMintPda],
-        [userUsdc, USDC_MINT],
+        [userYes, yesMintPda], [userNo, noMintPda], [userUsdc, USDC_MINT],
       ] as [PublicKey, PublicKey][]) {
-        const acc = await conn.getAccountInfo(ata);
-        if (!acc) {
-          ataIxs.push(
-            createAssociatedTokenAccountInstruction(publicKey, ata, publicKey, mint)
-          );
+        if (!(await conn.getAccountInfo(ata))) {
+          ataIxs.push(createAssociatedTokenAccountInstruction(publicKey, ata, publicKey, mint));
         }
       }
       if (ataIxs.length > 0) {
         const { Transaction } = await import("@solana/web3.js");
-        const ataTx = new Transaction().add(...ataIxs);
-        await program.provider.sendAndConfirm!(ataTx);
+        await program.provider.sendAndConfirm!(new Transaction().add(...ataIxs));
       }
 
-      // Step 2: Swap (ATAs now exist, Phantom simulation will pass)
-      const direction =
-        side === "yes" ? { usdcToYes: {} } : { usdcToNo: {} };
-
+      const direction = side === "yes" ? { usdcToYes: {} } : { usdcToNo: {} };
       const BN = (await import("@coral-xyz/anchor")).BN;
+
       const tx = await (program.methods as any)
         .swap(direction, new BN(lamports), new BN(0))
         .accounts({
-          signer: publicKey,
-          market: marketPda,
-          collateralMint: USDC_MINT,
-          yesMint: yesMintPda,
-          noMint: noMintPda,
-          vault: vaultPda,
-          userCollateral: userUsdc,
-          userYes,
-          userNo,
+          signer: publicKey, market: marketPda, collateralMint: USDC_MINT,
+          yesMint: yesMintPda, noMint: noMintPda, vault: vaultPda,
+          userCollateral: userUsdc, userYes, userNo,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
-        .preInstructions([
-          ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }),
-        ])
+        .preInstructions([ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })])
         .rpc();
 
-      setResult(`Bought ${side.toUpperCase()} tokens. Tx: ${tx.slice(0, 8)}...`);
+      setResult(`Bought ${side.toUpperCase()} tokens! Tx: ${tx.slice(0, 12)}...`);
       setAmount("");
     } catch (err: any) {
-      setResult(`Error: ${err.message?.slice(0, 80)}`);
+      setResult(`Error: ${err.message?.slice(0, 100)}`);
     } finally {
       setLoading(false);
     }
@@ -132,23 +124,57 @@ export function TradePanel({ market }: { market: MarketData }) {
           </Button>
         </div>
 
-        <div>
-          <Input
-            type="number"
-            placeholder="USDC amount"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            min="0"
-            step="0.01"
-          />
-        </div>
+        <Input
+          type="number"
+          placeholder="USDC amount"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          min="0"
+          step="0.01"
+        />
+
+        {/* Live preview */}
+        {preview && preview.output > 0 && (
+          <div className="p-3 rounded-md bg-muted text-sm space-y-1">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">You pay</span>
+              <span className="font-mono">{parseFloat(amount).toFixed(2)} USDC</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">You receive (est.)</span>
+              <span className="font-mono font-bold">
+                ~{(preview.output).toFixed(2)} {side.toUpperCase()}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Avg price</span>
+              <span className="font-mono">
+                {(parseFloat(amount) / preview.output).toFixed(4)} USDC/{side.toUpperCase()}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Price after</span>
+              <span className="font-mono">{formatPrice(preview.priceAfter)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Price impact</span>
+              <span className={`font-mono ${preview.priceImpact > 0.05 ? "text-destructive" : ""}`}>
+                {(preview.priceImpact * 100).toFixed(2)}%
+              </span>
+            </div>
+          </div>
+        )}
 
         <Button
           className="w-full"
           onClick={handleTrade}
           disabled={!publicKey || !amount || loading || market.resolved}
         >
-          {loading ? "Trading..." : `Buy ${side.toUpperCase()}`}
+          {loading
+            ? "Trading..."
+            : preview && preview.output > 0
+              ? `Buy ~${preview.output.toFixed(2)} ${side.toUpperCase()} for ${parseFloat(amount).toFixed(2)} USDC`
+              : `Buy ${side.toUpperCase()}`}
         </Button>
 
         {result && (
