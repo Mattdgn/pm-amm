@@ -1073,4 +1073,86 @@ mod tests {
         assert!(suggest_l_zero_for_budget(1000, 0).is_err());
         assert!(suggest_l_zero_for_budget(1000, -1).is_err());
     }
+
+    // ================================================================
+    // 12. Property A — Uniform LVR across prices (paper section 7)
+    // ================================================================
+
+    #[test]
+    fn test_property_a_uniform_lvr() {
+        let l = f(1000.0);
+        let remaining = 86400 * 6; // 6 days remaining
+        let l_eff = l_effective(f(10.0), remaining).unwrap();
+        let expected_ratio: f64 = 1.0 / (2.0 * remaining as f64);
+
+        for p in [0.1, 0.2, 0.3, 0.5, 0.7, 0.8, 0.9] {
+            let v: f64 = pool_value(f(p), l_eff).unwrap().to_num();
+            let lvr = v / (2.0 * remaining as f64);
+            let ratio = lvr / v;
+            let err = (ratio - expected_ratio).abs() / expected_ratio;
+            assert!(
+                err < 1e-6,
+                "Property A: LVR/V ratio at P={p}: err={err:.2e}"
+            );
+        }
+    }
+
+    // ================================================================
+    // 13. Stress — 50 sequential swaps, invariant holds
+    // ================================================================
+
+    #[test]
+    fn test_stress_sequential_swaps() {
+        let l = f(1000.0);
+        let (mut x, mut y) = reserves_from_price(HALF, l).unwrap();
+
+        // Alternate buy/sell YES
+        for i in 0..50 {
+            let delta = f(5.0 + (i as f64) * 0.5); // varying amounts
+            let direction = if i % 2 == 0 {
+                (SwapSide::Usdc, SwapSide::Yes)
+            } else {
+                (SwapSide::Yes, SwapSide::No)
+            };
+
+            let result = compute_swap_output(x, y, l, delta, direction.0, direction.1);
+            match result {
+                Ok(r) => {
+                    x = r.x_new;
+                    y = r.y_new;
+                    // Check price stays in bounds
+                    let p: f64 = r.price_new.to_num();
+                    assert!(p > 0.0001 && p < 0.9999, "Price out of bounds: {p}");
+                }
+                Err(_) => break, // Price hit boundary
+            }
+        }
+
+        // Invariant must hold at the end
+        let inv: f64 = invariant_value(x, y, l).unwrap().to_num();
+        assert!(inv.abs() < 0.1, "Invariant after stress: {inv:.6e}");
+    }
+
+    // ================================================================
+    // 14. Scale — small and large amounts
+    // ================================================================
+
+    #[test]
+    fn test_scale_small_large() {
+        // Small pool: L=1
+        let l_small = f(1.0);
+        let (x, y) = reserves_from_price(HALF, l_small).unwrap();
+        let v: f64 = pool_value(HALF, l_small).unwrap().to_num();
+        assert!((v - 0.39894).abs() < 0.01, "V(0.5, L=1) = {v}");
+        let inv: f64 = invariant_value(x, y, l_small).unwrap().to_num();
+        assert!(inv.abs() < 0.001, "Small pool invariant: {inv:.6e}");
+
+        // Large pool: L=100000
+        let l_large = f(100000.0);
+        let (x, y) = reserves_from_price(HALF, l_large).unwrap();
+        let v: f64 = pool_value(HALF, l_large).unwrap().to_num();
+        assert!((v - 39894.228).abs() < 10.0, "V(0.5, L=100k) = {v}");
+        let inv: f64 = invariant_value(x, y, l_large).unwrap().to_num();
+        assert!(inv.abs() < 1.0, "Large pool invariant: {inv:.6e}");
+    }
 }
