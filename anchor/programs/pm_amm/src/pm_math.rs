@@ -896,7 +896,7 @@ mod tests {
             assert!((pn - exp_price).abs() < 0.001, "{delta} price_new: got={pn:.5}, expected={exp_price:.5}");
             // Invariant must hold
             let inv: f64 = invariant_value(r.x_new, r.y_new, l).unwrap().to_num();
-            assert!(inv.abs() < 0.2, "Invariant after swap {delta}: {inv:.6e}");
+            assert!(inv.abs() < 0.01, "Invariant after swap {delta}: {inv:.6e}");
         }
     }
 
@@ -952,7 +952,7 @@ mod tests {
         assert!(pn < 0.5, "Price should decrease after YES->NO: {pn}");
         // Invariant
         let inv: f64 = invariant_value(r.x_new, r.y_new, l).unwrap().to_num();
-        assert!(inv.abs() < 0.1, "Invariant after YES->NO: {inv:.6e}");
+        assert!(inv.abs() < 0.01, "Invariant after YES->NO: {inv:.6e}");
     }
 
     #[test]
@@ -967,7 +967,7 @@ mod tests {
         assert!(pn > 0.5, "Price should increase after NO->YES: {pn}");
         // Invariant
         let inv: f64 = invariant_value(r.x_new, r.y_new, l).unwrap().to_num();
-        assert!(inv.abs() < 0.1, "Invariant after NO->YES: {inv:.6e}");
+        assert!(inv.abs() < 0.01, "Invariant after NO->YES: {inv:.6e}");
     }
 
     // ================================================================
@@ -1004,7 +1004,7 @@ mod tests {
         let r2 = compute_swap_output(r1.x_new, r1.y_new, l, r1.output, SwapSide::No, SwapSide::Yes).unwrap();
         let back: f64 = r2.output.to_num();
         let loss = (back - 10.0).abs() / 10.0;
-        assert!(loss < 0.02, "YES->NO->YES round-trip loss: {loss:.6}");
+        assert!(loss < 0.001, "YES->NO->YES round-trip loss: {loss:.6}");
     }
 
     // ================================================================
@@ -1020,7 +1020,7 @@ mod tests {
         assert!(r.output.to_num::<f64>() > 0.0);
         assert!(r.price_new.to_num::<f64>() > 0.2);
         let inv: f64 = invariant_value(r.x_new, r.y_new, l).unwrap().to_num();
-        assert!(inv.abs() < 0.1, "Invariant at P=0.2: {inv:.6e}");
+        assert!(inv.abs() < 0.01, "Invariant at P=0.2: {inv:.6e}");
 
         // At P=0.8 (high price)
         let (x, y) = reserves_from_price(f(0.8), l).unwrap();
@@ -1028,7 +1028,7 @@ mod tests {
         assert!(r.output.to_num::<f64>() > 0.0);
         assert!(r.price_new.to_num::<f64>() > 0.8);
         let inv: f64 = invariant_value(r.x_new, r.y_new, l).unwrap().to_num();
-        assert!(inv.abs() < 0.1, "Invariant at P=0.8: {inv:.6e}");
+        assert!(inv.abs() < 0.01, "Invariant at P=0.8: {inv:.6e}");
     }
 
     // ================================================================
