@@ -48,7 +48,8 @@ export function useSwapQuote(
         try {
           const info = await connection.getAccountInfo(outputAta);
           if (info && info.data.length >= 72) {
-            preBal = Number(info.data.readBigUInt64LE(64));
+            const view = new DataView(info.data.buffer, info.data.byteOffset);
+            preBal = Number(view.getBigUint64(64, true));
           }
         } catch { /* ATA doesn't exist yet */ }
 
@@ -82,8 +83,9 @@ export function useSwapQuote(
         // Read post-balance from simulated accounts
         const postAccounts = (sim.value as any).accounts;
         if (postAccounts?.[0]?.data) {
-          const buf = Buffer.from(postAccounts[0].data[0], "base64");
-          const postBal = Number(buf.readBigUInt64LE(64));
+          const buf = Uint8Array.from(atob(postAccounts[0].data[0]), c => c.charCodeAt(0));
+          const view = new DataView(buf.buffer);
+          const postBal = Number(view.getBigUint64(64, true));
           return { output: postBal - preBal, error: null };
         }
 
