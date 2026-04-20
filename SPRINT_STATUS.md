@@ -13,13 +13,13 @@
 - [x] Sprint 9 — Tests complets proprietes + robustesse (2026-04-20)
 - [x] Sprint 10 — Devnet deploy + seed (2026-04-20)
 - [x] Sprint 11 — Front Next.js scaffold (2026-04-20)
+- [x] Sprint 12 — UI trade + LP + residuels (2026-04-20)
 
 ## In Progress
 
 (aucun)
 
 ## Pending
-- [ ] Sprint 12 — UI trade + LP + residuels (7h)
 - [ ] Sprint 13 — Polish + README + demo (6h)
 
 **Total estime : 55h**
