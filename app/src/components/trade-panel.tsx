@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/components/ui/amount-input";
+import { MetaRow } from "@/components/ui/meta-row";
 import { useProgram } from "@/hooks/use-program";
-import { useSwapQuote } from "@/hooks/use-swap-quote";
-import { formatUsdc, formatPrice } from "@/lib/pm-math";
+import { useSwapQuote, type SwapMode } from "@/hooks/use-swap-quote";
+import { formatUsdc } from "@/lib/pm-math";
 import type { MarketData } from "@/hooks/use-markets";
+import type { UserTokens } from "@/hooks/use-user-tokens";
 import { PublicKey, ComputeBudgetProgram } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
@@ -16,52 +17,53 @@ import {
   createAssociatedTokenAccountInstruction,
   getAccount,
 } from "@solana/spl-token";
-import { USDC_MINT } from "@/lib/constants";
+import { USDC_MINT, solscanTxUrl } from "@/lib/constants";
+import { toast } from "sonner";
 
-const SLIPPAGE_BPS = 100; // 1% default slippage
+const SLIPPAGE_BPS = 100;
 
-export function TradePanel({ market }: { market: MarketData }) {
+export function TradePanel({
+  market,
+  tokens,
+}: {
+  market: MarketData;
+  tokens: UserTokens | null;
+}) {
+  const [mode, setMode] = useState<SwapMode>("buy");
   const [side, setSide] = useState<"yes" | "no">("yes");
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
   const program = useProgram();
   const { publicKey } = useWallet();
 
   const amountNum = parseFloat(amount) || 0;
+  const rawAmount = mode === "buy" ? amountNum : amountNum * 1e6;
+
   const { data: quote, isLoading: quoteLoading } = useSwapQuote(
-    market.publicKey, side, amountNum
+    market.publicKey, side, mode, rawAmount
   );
 
-  // Min output with slippage
   const minOutput = quote?.output
     ? Math.floor(quote.output * (1 - SLIPPAGE_BPS / 10000))
     : 0;
 
+  const maxSellable = side === "yes" ? (tokens?.yes ?? 0) : (tokens?.no ?? 0);
+
   const handleTrade = async () => {
     if (!program || !publicKey || !amount || !quote?.output) return;
     setLoading(true);
-    setResult(null);
-
     try {
       const marketPda = new PublicKey(market.publicKey);
-      const lamports = Math.floor(amountNum * 1e6);
-
       const yesMintPda = PublicKey.findProgramAddressSync(
-        [Buffer.from("yes_mint"), marketPda.toBuffer()], program.programId
-      )[0];
+        [Buffer.from("yes_mint"), marketPda.toBuffer()], program.programId)[0];
       const noMintPda = PublicKey.findProgramAddressSync(
-        [Buffer.from("no_mint"), marketPda.toBuffer()], program.programId
-      )[0];
+        [Buffer.from("no_mint"), marketPda.toBuffer()], program.programId)[0];
       const vaultPda = PublicKey.findProgramAddressSync(
-        [Buffer.from("vault"), marketPda.toBuffer()], program.programId
-      )[0];
-
+        [Buffer.from("vault"), marketPda.toBuffer()], program.programId)[0];
       const userUsdc = await getAssociatedTokenAddress(USDC_MINT, publicKey);
       const userYes = await getAssociatedTokenAddress(yesMintPda, publicKey);
       const userNo = await getAssociatedTokenAddress(noMintPda, publicKey);
 
-      // Create missing ATAs
       const conn = program.provider.connection;
       const ataIxs: any[] = [];
       for (const [ata, mint] of [
@@ -76,8 +78,14 @@ export function TradePanel({ market }: { market: MarketData }) {
         await program.provider.sendAndConfirm!(new Transaction().add(...ataIxs));
       }
 
-      const direction = side === "yes" ? { usdcToYes: {} } : { usdcToNo: {} };
+      const direction = mode === "buy"
+        ? (side === "yes" ? { usdcToYes: {} } : { usdcToNo: {} })
+        : (side === "yes" ? { yesToUsdc: {} } : { noToUsdc: {} });
+
       const BN = (await import("@coral-xyz/anchor")).BN;
+      const lamports = mode === "buy"
+        ? Math.floor(amountNum * 1e6)
+        : Math.floor(amountNum * 1e6);
 
       const tx = await (program.methods as any)
         .swap(direction, new BN(lamports), new BN(minOutput))
@@ -90,13 +98,19 @@ export function TradePanel({ market }: { market: MarketData }) {
         .preInstructions([ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })])
         .rpc();
 
-      setResult(`Bought ${side.toUpperCase()} tokens! Tx: ${tx.slice(0, 12)}...`);
+      const desc = mode === "buy"
+        ? `${formatUsdc(quote.output)} ${side.toUpperCase()} for ${amountNum.toFixed(2)} USDC`
+        : `${amountNum.toFixed(2)} ${side.toUpperCase()} for ${formatUsdc(quote.output)} USDC`;
+      toast.success(`${mode === "buy" ? "Bought" : "Sold"} ${side.toUpperCase()}`, {
+        description: desc,
+        action: { label: "Solscan ↗", onClick: () => window.open(solscanTxUrl(tx), "_blank") },
+      });
       setAmount("");
     } catch (err: any) {
       if (err.message?.includes("Slippage")) {
-        setResult("Slippage exceeded — price moved. Try again.");
+        toast.error("Slippage exceeded", { description: "Price moved. Try again." });
       } else {
-        setResult(`Error: ${err.message?.slice(0, 100)}`);
+        toast.error("Transaction failed", { description: err.message?.slice(0, 120) });
       }
     } finally {
       setLoading(false);
@@ -104,90 +118,103 @@ export function TradePanel({ market }: { market: MarketData }) {
   };
 
   const outputDisplay = quote?.output ? formatUsdc(quote.output) : "—";
-  const avgPrice = quote?.output && amountNum > 0
-    ? (amountNum * 1e6 / quote.output).toFixed(4)
-    : "—";
+  const inputUnit = mode === "buy" ? "USDC" : side.toUpperCase();
+  const outputUnit = mode === "buy" ? side.toUpperCase() : "USDC";
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Trade</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex gap-2">
-          <Button
-            variant={side === "yes" ? "default" : "outline"}
-            onClick={() => setSide("yes")}
-            className="flex-1"
-          >
-            Buy YES
-          </Button>
-          <Button
-            variant={side === "no" ? "default" : "outline"}
-            onClick={() => setSide("no")}
-            className="flex-1"
-          >
-            Buy NO
-          </Button>
-        </div>
+    <div className="border border-line p-[16px] space-y-[12px]">
+      <div className="text-caption">TRADE</div>
 
-        <Input
-          type="number"
-          placeholder="USDC amount"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          min="0"
-          step="0.01"
-        />
-
-        {/* On-chain quote */}
-        {amountNum > 0 && (
-          <div className="p-3 rounded-md bg-muted text-sm space-y-1.5">
-            {quoteLoading ? (
-              <p className="text-muted-foreground">Fetching quote...</p>
-            ) : quote?.error ? (
-              <p className="text-destructive text-xs">{quote.error}</p>
-            ) : quote?.output ? (
-              <>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">You pay</span>
-                  <span className="font-mono">{amountNum.toFixed(2)} USDC</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">You receive</span>
-                  <span className="font-mono font-bold text-green-400">
-                    {outputDisplay} {side.toUpperCase()}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Avg price</span>
-                  <span className="font-mono">{avgPrice} USDC/{side.toUpperCase()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Min output (1% slippage)</span>
-                  <span className="font-mono">{formatUsdc(minOutput)} {side.toUpperCase()}</span>
-                </div>
-              </>
-            ) : null}
-          </div>
-        )}
-
+      {/* Mode toggle */}
+      <div className="flex gap-[8px]">
         <Button
-          className="w-full"
-          onClick={handleTrade}
-          disabled={!publicKey || !amount || loading || market.resolved || !quote?.output}
+          variant={mode === "buy" ? "secondary" : "ghost"}
+          onClick={() => { setMode("buy"); setAmount(""); }}
+          className="flex-1 uppercase text-[11px] tracking-[0.05em]"
         >
-          {loading
-            ? "Trading..."
-            : quote?.output
-              ? `Buy ${outputDisplay} ${side.toUpperCase()} for ${amountNum.toFixed(2)} USDC`
-              : `Buy ${side.toUpperCase()}`}
+          Buy
         </Button>
+        <Button
+          variant={mode === "sell" ? "secondary" : "ghost"}
+          onClick={() => { setMode("sell"); setAmount(""); }}
+          className="flex-1 uppercase text-[11px] tracking-[0.05em]"
+        >
+          Sell
+        </Button>
+      </div>
 
-        {result && (
-          <p className="text-sm text-muted-foreground">{result}</p>
-        )}
-      </CardContent>
-    </Card>
+      {/* Side toggle */}
+      <div className="flex gap-[6px]">
+        <Button
+          variant={side === "yes" ? "yes" : "ghost"}
+          onClick={() => { setSide("yes"); setAmount(""); }}
+          className="flex-1"
+        >
+          YES
+        </Button>
+        <Button
+          variant={side === "no" ? "no" : "ghost"}
+          onClick={() => { setSide("no"); setAmount(""); }}
+          className="flex-1"
+        >
+          NO
+        </Button>
+      </div>
+
+      {/* Amount */}
+      <AmountInput
+        label={mode === "buy" ? "YOU PAY" : "YOU SELL"}
+        unit={inputUnit}
+        type="number"
+        placeholder="0.00"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        min="0"
+        step="0.01"
+      />
+      {mode === "sell" && maxSellable > 0 && (
+        <button
+          type="button"
+          className="text-[11px] text-accent hover:text-text-hi font-mono transition-all duration-[120ms]"
+          onClick={() => setAmount((maxSellable / 1e6).toString())}
+        >
+          Max: {formatUsdc(maxSellable)} {side.toUpperCase()}
+        </button>
+      )}
+
+      {/* Quote */}
+      {amountNum > 0 && (
+        <div className="border-t border-line pt-[8px]">
+          {quoteLoading ? (
+            <p className="text-muted text-[12px] font-mono">Fetching quote...</p>
+          ) : quote?.error ? (
+            <p className="text-no text-[11px] font-mono">{quote.error}</p>
+          ) : quote?.output ? (
+            <>
+              <MetaRow label="You receive" value={`${outputDisplay} ${outputUnit}`} />
+              <MetaRow
+                label="Avg price"
+                value={
+                  mode === "buy"
+                    ? `${(amountNum * 1e6 / quote.output).toFixed(4)} USDC/${side.toUpperCase()}`
+                    : `${(quote.output / (amountNum * 1e6)).toFixed(4)} USDC/${side.toUpperCase()}`
+                }
+              />
+              <MetaRow label="Min output (1%)" value={`${formatUsdc(minOutput)} ${outputUnit}`} last />
+            </>
+          ) : null}
+        </div>
+      )}
+
+      {/* Execute */}
+      <Button
+        variant={side === "yes" ? "yes" : "no"}
+        className="w-full uppercase text-[11px] tracking-[0.05em]"
+        onClick={handleTrade}
+        disabled={!publicKey || !amount || loading || market.resolved || !quote?.output}
+      >
+        {loading ? "TRADING..." : `${mode.toUpperCase()} ${side.toUpperCase()}`}
+      </Button>
+    </div>
   );
 }

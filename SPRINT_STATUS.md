@@ -15,6 +15,7 @@
 - [x] Sprint 11 — Front Next.js scaffold (2026-04-20)
 - [x] Sprint 12 — UI trade + LP + residuels (2026-04-20)
 - [x] Sprint 13 — Polish + README + demo (2026-04-20)
+- [x] Sprint 14 — Brand System & UI Refactor (2026-04-20)
 
 ## In Progress
 
@@ -82,7 +83,32 @@ Sprint 1 ─┬─→ Sprint 2 ──┬─→ Sprint 4 ──→ Sprint 5 ─�
 - Phi_inv accuracy ~1e-3 at tails (p<0.02), sufficient for on-chain but monitor
 - exp_fixed limited to [-20, 20] — OK for normal distribution use
 
+## Metrics — Sprint 14
+- Files changed: 22
+- Lines: ~1800 new/modified
+- New components: 9 primitives + 3 layout + 2 market (table, detail panel)
+- Deleted: 5 old shadcn components (header, market-card, card, tabs, input)
+- Type errors: 0
+- Build warnings: 0
+- Hardcoded colors: 0
+
+## Retro — Sprint 14
+### Smooth
+- Tailwind v4 @theme inline maps cleanly to CSS custom properties
+- next/font/google worked for Inter Tight + JetBrains Mono (zero CLS)
+- Brand tokens mapped 1:1 — no interpretation needed
+### Friction
+- Old shadcn variants (outline, default) clashed with new brand variants — required full rewrite of button/badge
+- Tailwind color-mix syntax needed bracket escaping (color-mix(in_oklch,...))
+### Watch
+- Wallet adapter button styling is inline — limited to style prop, no className
+- Sparkline data is currently deterministic seed — needs real on-chain price history later
+- Sidebar filters (My positions, Watchlist) are stubs — need user token data
+
 ## Decisions
+- Sprint 14: Replaced Geist fonts with Inter Tight + JetBrains Mono per brand system
+- Sprint 14: Removed shadcn card/tabs/input — replaced with brand-native components
+- Sprint 14: Home page changed from card grid to trading terminal (table + sidebar + detail panel)
 - Sprint 1: Monorepo split anchor/ + app/ pour lisibilite — CLAUDE.md mis a jour
 - Sprint 1: Platform-tools v1.52 requis (v1.51 incompatible edition2024)
 - Sprint 2: Python oracle (oracle/) created as ground truth before Rust transposition

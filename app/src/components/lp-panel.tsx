@@ -2,22 +2,22 @@
 
 import { useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/components/ui/amount-input";
+import { MetaRow } from "@/components/ui/meta-row";
 import { useProgram } from "@/hooks/use-program";
 import { useLpPosition } from "@/hooks/use-lp-position";
 import { formatUsdc } from "@/lib/pm-math";
 import type { MarketData } from "@/hooks/use-markets";
 import { PublicKey, ComputeBudgetProgram, SystemProgram } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from "@solana/spl-token";
-import { USDC_MINT } from "@/lib/constants";
+import { USDC_MINT, solscanTxUrl } from "@/lib/constants";
 import { BN } from "@coral-xyz/anchor";
+import { toast } from "sonner";
 
 export function LpPanel({ market }: { market: MarketData }) {
   const [depositAmt, setDepositAmt] = useState("");
   const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
   const program = useProgram();
   const { publicKey } = useWallet();
   const { data: lp } = useLpPosition(market.publicKey);
@@ -31,7 +31,6 @@ export function LpPanel({ market }: { market: MarketData }) {
   const handleDeposit = async () => {
     if (!program || !publicKey || !depositAmt) return;
     setLoading(true);
-    setMsg(null);
     try {
       const lamports = Math.floor(parseFloat(depositAmt) * 1e6);
       const userUsdc = await getAssociatedTokenAddress(USDC_MINT, publicKey);
@@ -39,26 +38,21 @@ export function LpPanel({ market }: { market: MarketData }) {
         [Buffer.from("lp"), marketPda.toBuffer(), publicKey.toBuffer()],
         program.programId
       );
-
-      await (program.methods as any)
+      const tx = await (program.methods as any)
         .depositLiquidity(new BN(lamports))
         .accounts({
-          signer: publicKey,
-          market: marketPda,
-          collateralMint: USDC_MINT,
-          vault: vaultPda,
-          userCollateral: userUsdc,
-          lpPosition: lpPda,
-          systemProgram: SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          signer: publicKey, market: marketPda, collateralMint: USDC_MINT,
+          vault: vaultPda, userCollateral: userUsdc, lpPosition: lpPda,
+          systemProgram: SystemProgram.programId, tokenProgram: TOKEN_PROGRAM_ID,
         })
         .preInstructions([ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })])
         .rpc();
-
-      setMsg(`Deposited ${depositAmt} USDC`);
+      toast.success(`Deposited ${depositAmt} USDC`, {
+        action: { label: "Solscan ↗", onClick: () => window.open(solscanTxUrl(tx), "_blank") },
+      });
       setDepositAmt("");
     } catch (err: any) {
-      setMsg(`Error: ${err.message?.slice(0, 80)}`);
+      toast.error("Deposit failed", { description: err.message?.slice(0, 120) });
     } finally {
       setLoading(false);
     }
@@ -67,93 +61,73 @@ export function LpPanel({ market }: { market: MarketData }) {
   const handleWithdraw = async () => {
     if (!program || !publicKey || !lp) return;
     setLoading(true);
-    setMsg(null);
     try {
       const yesMint = PublicKey.findProgramAddressSync(
-        [Buffer.from("yes_mint"), marketPda.toBuffer()], program.programId
-      )[0];
+        [Buffer.from("yes_mint"), marketPda.toBuffer()], program.programId)[0];
       const noMint = PublicKey.findProgramAddressSync(
-        [Buffer.from("no_mint"), marketPda.toBuffer()], program.programId
-      )[0];
+        [Buffer.from("no_mint"), marketPda.toBuffer()], program.programId)[0];
       const userYes = await getAssociatedTokenAddress(yesMint, publicKey);
       const userNo = await getAssociatedTokenAddress(noMint, publicKey);
       const [lpPda] = PublicKey.findProgramAddressSync(
         [Buffer.from("lp"), marketPda.toBuffer(), publicKey.toBuffer()],
         program.programId
       );
-
-      // Withdraw all shares
-      const sharesBn = new BN(
-        (BigInt(Math.floor(lp.shares * 2 ** 48))).toString()
-      );
-
-      await (program.methods as any)
+      const sharesBn = new BN((BigInt(Math.floor(lp.shares * 2 ** 48))).toString());
+      const tx = await (program.methods as any)
         .withdrawLiquidity(sharesBn)
         .accounts({
-          signer: publicKey,
-          market: marketPda,
-          collateralMint: USDC_MINT,
-          yesMint,
-          noMint,
-          lpPosition: lpPda,
-          userYes,
-          userNo,
+          signer: publicKey, market: marketPda, collateralMint: USDC_MINT,
+          yesMint, noMint, lpPosition: lpPda, userYes, userNo,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .preInstructions([ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })])
         .rpc();
-
-      setMsg("Withdrew all liquidity");
+      toast.success("Withdrew all liquidity", {
+        action: { label: "Solscan ↗", onClick: () => window.open(solscanTxUrl(tx), "_blank") },
+      });
     } catch (err: any) {
-      setMsg(`Error: ${err.message?.slice(0, 80)}`);
+      toast.error("Withdraw failed", { description: err.message?.slice(0, 120) });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Liquidity</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {lp && lp.shares > 0 && (
-          <div className="p-3 rounded-md bg-muted text-sm space-y-1">
-            <p>Your shares: {lp.shares.toFixed(2)}</p>
-            <p>Deposited: ${formatUsdc(lp.collateralDeposited)}</p>
-          </div>
-        )}
+    <div className="border border-line p-[16px] space-y-[12px]">
+      <div className="text-caption">LIQUIDITY</div>
 
-        <div className="flex gap-2">
-          <Input
-            type="number"
-            placeholder="USDC to deposit"
-            value={depositAmt}
-            onChange={(e) => setDepositAmt(e.target.value)}
-            min="0.001"
-            step="0.01"
-          />
-          <Button
-            onClick={handleDeposit}
-            disabled={!publicKey || !depositAmt || loading || market.resolved}
-          >
-            {loading ? "..." : "Deposit"}
-          </Button>
+      {lp && lp.shares > 0 && (
+        <div className="border-b border-line pb-[8px]">
+          <MetaRow label="Your shares" value={lp.shares.toFixed(2)} />
+          <MetaRow label="Deposited" value={`$${formatUsdc(lp.collateralDeposited)}`} last />
         </div>
+      )}
 
-        {lp && lp.shares > 0 && (
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={handleWithdraw}
-            disabled={loading}
-          >
-            Withdraw All
-          </Button>
-        )}
+      <div className="flex gap-[8px]">
+        <AmountInput
+          placeholder="0.00"
+          value={depositAmt}
+          onChange={(e) => setDepositAmt(e.target.value)}
+          type="number"
+          min="0.001"
+          step="0.01"
+          className="flex-1"
+        />
+        <Button
+          variant="secondary"
+          onClick={handleDeposit}
+          disabled={!publicKey || !depositAmt || loading || market.resolved}
+          className="shrink-0"
+        >
+          {loading ? "..." : "Deposit"}
+        </Button>
+      </div>
 
-        {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
-      </CardContent>
-    </Card>
+      {lp && lp.shares > 0 && (
+        <Button variant="secondary" className="w-full" onClick={handleWithdraw} disabled={loading}>
+          Withdraw All
+        </Button>
+      )}
+    </div>
   );
 }

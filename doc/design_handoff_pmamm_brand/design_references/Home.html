@@ -1,0 +1,736 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>pm/amm — Surveillance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared/tokens.css" />
+<style>
+:root {
+  --bg: #1f1d1a;
+  --surface: #272420;
+  --surface-2: #2f2b27;
+  --line: #373330;
+  --line-2: #47423d;
+  --muted: #8a847c;
+  --text-dim: #b5afa6;
+  --text: #e8e2d7;
+  --text-hi: #f5efe3;
+  --yes: #6bb584;
+  --yes-soft: rgba(107, 181, 132, 0.12);
+  --no: #d47766;
+  --no-soft: rgba(212, 119, 102, 0.12);
+  --accent: #d9b366;
+  --font-sans: "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #1f1d1a !important; color: #e8e2d7; }
+body {
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum", "cv11";
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.005em;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.tnum { font-variant-numeric: tabular-nums; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 8px; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  :root { --row: 44px; }
+  body { font-size: 13px; }
+
+  /* Responsive shell — collapse to single column below 1200px */
+  @media (max-width: 1200px) {
+    .shell { grid-template-columns: 180px 1fr !important; }
+    .right { display: none !important; }
+    .statusbar .stats { display: none !important; }
+  }
+  @media (max-width: 860px) {
+    .shell { grid-template-columns: 1fr !important; }
+    .side { display: none !important; }
+  }
+
+  /* Top status bar */
+  .statusbar {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 32px;
+    align-items: center;
+    padding: 10px 24px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.03em;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .brand {
+    font-family: var(--font-sans); font-size: 13px;
+    color: var(--text-hi); font-weight: 500;
+    letter-spacing: -0.01em;
+    display: inline-flex; align-items: center; gap: 10px;
+  }
+  .brand-mark {
+    width: 16px; height: 16px;
+    border: 1px solid var(--text-hi);
+    border-radius: 2px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-size: 9px;
+    letter-spacing: 0;
+  }
+  .brand em { font-style: normal; color: var(--muted); font-weight: 400; }
+
+  .statusbar .stats {
+    display: flex; gap: 24px; justify-content: center;
+  }
+  .statusbar .stat { display: inline-flex; align-items: baseline; gap: 8px; }
+  .statusbar .stat .k { color: var(--muted); }
+  .statusbar .stat .v { color: var(--text-hi); font-size: 12px; }
+  .statusbar .stat .d { font-size: 11px; }
+  .statusbar .stat .d.up { color: var(--yes); }
+  .statusbar .stat .d.down { color: var(--no); }
+
+  .live {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: var(--yes);
+  }
+  .live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--yes);
+    animation: blink 1.4s infinite;
+  }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .right-meta {
+    display: flex; gap: 20px; align-items: center;
+  }
+  .wallet {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 4px 10px;
+    border: 1px solid var(--line-2);
+    border-radius: 2px;
+    color: var(--text);
+  }
+  .wallet .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--yes); }
+
+  /* Main grid */
+  .shell {
+    display: grid;
+    grid-template-columns: 220px 1fr 300px;
+    min-height: calc(100vh - 38px);
+  }
+
+  /* Sidebar */
+  .side {
+    border-right: 1px solid var(--line);
+    padding: 20px 0;
+    font-family: var(--font-mono); font-size: 12px;
+  }
+  .side-title {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0 20px;
+    margin: 16px 0 8px;
+  }
+  .side-title:first-child { margin-top: 0; }
+  .side-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 20px;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-left: 2px solid transparent;
+  }
+  .side-item:hover { color: var(--text-hi); background: var(--surface); }
+  .side-item.active {
+    color: var(--text-hi);
+    border-left-color: var(--accent);
+    background: var(--surface);
+  }
+  .side-item .cnt { color: var(--muted); font-size: 11px; }
+  .side-item .swatch {
+    display: inline-block; width: 8px; height: 8px;
+    margin-right: 8px;
+  }
+
+  /* Center: market table */
+  .center {
+    display: flex; flex-direction: column;
+    min-width: 0;
+  }
+  .toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+  .toolbar-left { display: flex; gap: 4px; align-items: center; }
+  .tab {
+    padding: 5px 12px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 2px;
+  }
+  .tab:hover { color: var(--text-hi); }
+  .tab.active {
+    color: var(--text-hi);
+    border-color: var(--line-2);
+    background: var(--surface);
+  }
+  .tab .n { color: var(--muted); margin-left: 5px; }
+  .tab.active .n { color: var(--text-dim); }
+
+  .search {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 10px;
+    border: 1px solid var(--line-2);
+    border-radius: 2px;
+    min-width: 220px;
+  }
+  .search input {
+    background: transparent; border: none; outline: none;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--text); flex: 1;
+  }
+  .search input::placeholder { color: var(--muted); }
+  .search .kbd {
+    font-family: var(--font-mono); font-size: 9px;
+    color: var(--muted);
+    border: 1px solid var(--line-2);
+    padding: 0 4px; border-radius: 2px;
+  }
+
+  .toolbar-right { display: flex; gap: 10px; align-items: center; }
+  .btn-plain {
+    padding: 5px 10px;
+    background: transparent;
+    border: 1px solid var(--line-2);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    border-radius: 2px;
+  }
+  .btn-plain:hover { background: var(--surface); }
+  .btn-primary-plain {
+    padding: 5px 10px;
+    background: var(--text-hi);
+    border: 1px solid var(--text-hi);
+    color: var(--bg);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    border-radius: 2px;
+    font-weight: 500;
+  }
+
+  /* Table */
+  .tbl-head {
+    display: grid;
+    grid-template-columns: 60px 1fr 70px 90px 90px 70px 90px 90px 80px;
+    gap: 16px;
+    padding: 10px 24px;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .tbl-head .r, .trow .r { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .trow {
+    display: grid;
+    grid-template-columns: 60px 1fr 70px 90px 90px 70px 90px 90px 80px;
+    gap: 16px;
+    padding: 0 24px;
+    height: var(--row);
+    align-items: center;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    cursor: pointer;
+    position: relative;
+  }
+  .trow:hover { background: var(--surface); }
+  .trow.selected { background: var(--surface); }
+  .trow.selected::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 2px; background: var(--accent);
+  }
+  .trow.resolved { opacity: 0.55; }
+  .trow.resolved:hover { opacity: 1; }
+
+  .tid {
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.02em;
+  }
+  .tq {
+    display: flex; align-items: center; gap: 10px;
+    min-width: 0;
+    color: var(--text-hi);
+    letter-spacing: -0.005em;
+    font-family: var(--font-sans);
+    font-size: 13px;
+  }
+  .tq-txt {
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    flex: 1; min-width: 0;
+  }
+  .tq-cat {
+    display: inline-block;
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--muted);
+    border: 1px solid var(--line-2);
+    padding: 1px 6px; border-radius: 2px;
+    letter-spacing: 0.03em;
+    flex-shrink: 0;
+  }
+  .tq-cat .swatch {
+    display: inline-block;
+    width: 5px; height: 5px; margin-right: 5px;
+    vertical-align: middle; border-radius: 1px;
+  }
+
+  .tyes { color: var(--yes); font-size: 13px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .tno  { color: var(--no); font-size: 13px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .tdim { color: var(--text); font-variant-numeric: tabular-nums; }
+  .tmut { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .tdelta { font-size: 11px; font-variant-numeric: tabular-nums; }
+  .tdelta.up { color: var(--yes); }
+  .tdelta.down { color: var(--no); }
+
+  .tspark { height: 20px; }
+
+  .tstate {
+    display: inline-block;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    padding: 1px 5px;
+    border: 1px solid var(--line-2);
+    border-radius: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+  .tstate.active { color: var(--yes); border-color: color-mix(in oklch, var(--yes) 30%, transparent); }
+  .tstate.warn { color: var(--accent); border-color: color-mix(in oklch, var(--accent) 35%, transparent); }
+  .tstate.yes { color: var(--yes); border-color: color-mix(in oklch, var(--yes) 30%, transparent); }
+  .tstate.no { color: var(--no); border-color: color-mix(in oklch, var(--no) 30%, transparent); }
+
+  /* Right panel — detail */
+  .right {
+    border-left: 1px solid var(--line);
+    padding: 20px 20px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .right-head {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 16px;
+    display: flex; justify-content: space-between;
+  }
+  .det-id {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--muted); letter-spacing: 0.03em;
+    margin-bottom: 6px;
+  }
+  .det-q {
+    font-family: var(--font-sans);
+    font-size: 17px; font-weight: 400;
+    letter-spacing: -0.015em; line-height: 1.3;
+    color: var(--text-hi);
+    margin-bottom: 16px;
+  }
+  .det-chart { height: 120px; margin: 12px 0 16px; border: 1px solid var(--line); padding: 8px; }
+  .det-row {
+    display: flex; justify-content: space-between;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--line);
+    font-variant-numeric: tabular-nums;
+  }
+  .det-row:last-child { border-bottom: none; }
+  .det-row .k { color: var(--muted); letter-spacing: 0.03em; }
+  .det-row .v { color: var(--text); }
+
+  .det-prices {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    margin-bottom: 12px;
+  }
+  .det-price {
+    padding: 12px;
+    border: 1px solid var(--line-2);
+    border-radius: 2px;
+  }
+  .det-price.yes { border-color: color-mix(in oklch, var(--yes) 30%, transparent); background: var(--yes-soft); }
+  .det-price.no { border-color: color-mix(in oklch, var(--no) 30%, transparent); background: var(--no-soft); }
+  .det-price .lbl {
+    font-size: 10px; letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .det-price.yes .lbl { color: var(--yes); }
+  .det-price.no .lbl { color: var(--no); }
+  .det-price .val {
+    font-size: 22px; letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .det-price.yes .val { color: var(--yes); }
+  .det-price.no .val { color: var(--no); }
+  .det-price .d { font-size: 10px; margin-top: 4px; letter-spacing: 0.02em; }
+
+  .det-actions {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    margin: 14px 0 4px;
+  }
+  .det-actions button {
+    padding: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    border-radius: 2px;
+    border: 1px solid;
+    text-transform: uppercase;
+  }
+  .det-actions .buy-yes {
+    background: var(--yes-soft);
+    color: var(--yes);
+    border-color: color-mix(in oklch, var(--yes) 35%, transparent);
+  }
+  .det-actions .buy-no {
+    background: var(--no-soft);
+    color: var(--no);
+    border-color: color-mix(in oklch, var(--no) 35%, transparent);
+  }
+
+  .det-section {
+    font-size: 10px; letter-spacing: 0.08em;
+    color: var(--muted); text-transform: uppercase;
+    margin: 24px 0 8px;
+  }
+
+  .tick-list {
+    display: flex; flex-direction: column;
+    font-size: 11px;
+  }
+  .tick {
+    display: grid;
+    grid-template-columns: 58px 1fr auto;
+    gap: 10px;
+    padding: 5px 0;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--line);
+  }
+  .tick:last-child { border-bottom: none; }
+  .tick .t { color: var(--muted); font-size: 10px; }
+  .tick .act { letter-spacing: 0.03em; }
+  .tick .act.yes { color: var(--yes); }
+  .tick .act.no { color: var(--no); }
+</style>
+</head>
+<body>
+
+<!-- STATUS BAR -->
+<div class="statusbar" data-screen-label="Status bar">
+  <div class="brand"><span class="brand-mark">p</span> pm<em>/</em>amm</div>
+  <div class="stats">
+    <span class="stat"><span class="k">NET</span><span class="v">SOLANA MAINNET</span></span>
+    <span class="stat"><span class="k">SLOT</span><span class="v">291,448,102</span></span>
+    <span class="stat"><span class="k">TVL</span><span class="v">$4.82M</span><span class="d up">+4.2%</span></span>
+    <span class="stat"><span class="k">24H VOL</span><span class="v">$862k</span><span class="d up">+12.8%</span></span>
+    <span class="stat"><span class="k">MKTS</span><span class="v">147</span><span class="d">122 active</span></span>
+    <span class="stat"><span class="k">LP APY</span><span class="v" style="color: var(--accent);">18.4%</span></span>
+  </div>
+  <div class="right-meta">
+    <span class="live"><span class="live-dot"></span>LIVE · 04.20.26 14:22:08 UTC</span>
+    <span class="wallet"><span class="dot"></span>7F3k…bA2q · 1,248.92</span>
+  </div>
+</div>
+
+<!-- SHELL -->
+<div class="shell">
+
+  <!-- SIDE -->
+  <aside class="side" data-screen-label="Sidebar">
+    <div class="side-title">View</div>
+    <div class="side-item active">All markets <span class="cnt">147</span></div>
+    <div class="side-item">My positions <span class="cnt">4</span></div>
+    <div class="side-item">My liquidity <span class="cnt">2</span></div>
+    <div class="side-item">Watchlist <span class="cnt">11</span></div>
+
+    <div class="side-title">Status</div>
+    <div class="side-item">Active <span class="cnt">122</span></div>
+    <div class="side-item">Expiring &lt; 24h <span class="cnt">8</span></div>
+    <div class="side-item">Resolved <span class="cnt">17</span></div>
+
+    <div class="side-title">Category</div>
+    <div class="side-item"><span><span class="swatch" style="background: oklch(0.70 0.09 150);"></span>Crypto</span><span class="cnt">48</span></div>
+    <div class="side-item"><span><span class="swatch" style="background: oklch(0.78 0.08 75);"></span>Macro</span><span class="cnt">32</span></div>
+    <div class="side-item"><span><span class="swatch" style="background: oklch(0.70 0.10 260);"></span>AI</span><span class="cnt">26</span></div>
+    <div class="side-item"><span><span class="swatch" style="background: oklch(0.66 0.11 30);"></span>Politics</span><span class="cnt">19</span></div>
+    <div class="side-item"><span><span class="swatch" style="background: oklch(0.62 0.09 300);"></span>Sports</span><span class="cnt">14</span></div>
+    <div class="side-item"><span><span class="swatch" style="background: oklch(0.68 0.05 200);"></span>Tech</span><span class="cnt">8</span></div>
+
+    <div class="side-title">Sort</div>
+    <div class="side-item active">TVL · desc</div>
+    <div class="side-item">24h Volume</div>
+    <div class="side-item">Expiry · soonest</div>
+    <div class="side-item">Newest</div>
+  </aside>
+
+  <!-- CENTER -->
+  <main class="center" data-screen-label="Market table">
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <button class="tab active">ALL <span class="n">147</span></button>
+        <button class="tab">ACTIVE <span class="n">122</span></button>
+        <button class="tab">EXPIRING <span class="n">8</span></button>
+        <button class="tab">RESOLVED <span class="n">17</span></button>
+      </div>
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <div class="search">
+          <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><circle cx="5" cy="5" r="3.5" stroke="var(--muted)" strokeWidth="1.2"/><line x1="8" y1="8" x2="10.5" y2="10.5" stroke="var(--muted)" strokeWidth="1.2" strokeLinecap="round"/></svg>
+          <input placeholder="SEARCH" />
+          <span class="kbd">⌘K</span>
+        </div>
+        <button class="btn-plain">FILTER</button>
+        <button class="btn-primary-plain">+ NEW MARKET</button>
+      </div>
+    </div>
+
+    <div class="tbl-head">
+      <div>ID</div>
+      <div>MARKET</div>
+      <div class="r">YES</div>
+      <div class="r">NO</div>
+      <div class="r">Δ 24H</div>
+      <div>PROB · 30D</div>
+      <div class="r">TVL</div>
+      <div class="r">24H VOL</div>
+      <div class="r">EXPIRES</div>
+    </div>
+
+    <div id="rows"></div>
+  </main>
+
+  <!-- RIGHT DETAIL -->
+  <aside class="right" data-screen-label="Detail panel">
+    <div class="right-head"><span>SELECTED</span><span>MKT-001</span></div>
+    <div class="det-id">MKT-001 · Crypto · Solana Mainnet</div>
+    <div class="det-q">Will BTC close above $200,000 before December 31, 2026?</div>
+
+    <div class="det-prices">
+      <div class="det-price yes">
+        <div class="lbl">YES</div>
+        <div class="val tnum">0.6234</div>
+        <div class="d">+0.021 · +3.4%</div>
+      </div>
+      <div class="det-price no">
+        <div class="lbl">NO</div>
+        <div class="val tnum">0.3766</div>
+        <div class="d">−0.021 · −5.3%</div>
+      </div>
+    </div>
+
+    <div class="det-chart" id="det-chart"></div>
+
+    <div class="det-row"><span class="k">TVL</span><span class="v">$862,421</span></div>
+    <div class="det-row"><span class="k">24h volume</span><span class="v">$128,114</span></div>
+    <div class="det-row"><span class="k">Liquidity providers</span><span class="v">42</span></div>
+    <div class="det-row"><span class="k">Expires</span><span class="v">14d 08h 14m</span></div>
+    <div class="det-row"><span class="k">Implied σ</span><span class="v">0.084</span></div>
+    <div class="det-row"><span class="k">30d range</span><span class="v">0.491 – 0.681</span></div>
+
+    <div class="det-actions">
+      <button class="buy-yes">BUY YES · 0.62</button>
+      <button class="buy-no">BUY NO · 0.38</button>
+    </div>
+
+    <div class="det-section">Recent activity</div>
+    <div class="tick-list">
+      <div class="tick"><span class="t">14:22:04</span><span class="act yes">BUY YES · 1,240.00</span><span class="tmut">@0.6234</span></div>
+      <div class="tick"><span class="t">14:21:47</span><span class="act no">BUY NO · 412.50</span><span class="tmut">@0.3768</span></div>
+      <div class="tick"><span class="t">14:21:12</span><span class="act">LP +5,000.00</span><span class="tmut">—</span></div>
+      <div class="tick"><span class="t">14:20:38</span><span class="act yes">BUY YES · 820.00</span><span class="tmut">@0.6228</span></div>
+      <div class="tick"><span class="t">14:20:02</span><span class="act no">SELL NO · 260.00</span><span class="tmut">@0.3771</span></div>
+      <div class="tick"><span class="t">14:19:21</span><span class="act yes">BUY YES · 3,150.00</span><span class="tmut">@0.6224</span></div>
+      <div class="tick"><span class="t">14:18:44</span><span class="act">REDEEM · 80.00</span><span class="tmut">pair</span></div>
+      <div class="tick"><span class="t">14:17:58</span><span class="act no">BUY NO · 1,100.00</span><span class="tmut">@0.3780</span></div>
+    </div>
+  </aside>
+
+</div>
+
+<script type="text/babel">
+  // ---------- Data ----------
+  const CATS = {
+    Crypto:   "oklch(0.70 0.09 150)",
+    Macro:    "oklch(0.78 0.08 75)",
+    AI:       "oklch(0.70 0.10 260)",
+    Politics: "oklch(0.66 0.11 30)",
+    Sports:   "oklch(0.62 0.09 300)",
+    Tech:     "oklch(0.68 0.05 200)",
+  };
+
+  // Deterministic noise for sparklines so they render the same
+  const sparkFor = (seed, trend = 0) => {
+    let s = seed;
+    const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+    const pts = [];
+    let v = 0.5;
+    for (let i = 0; i < 30; i++) {
+      v += (rnd() - 0.5) * 0.04 + trend * 0.004;
+      v = Math.max(0.1, Math.min(0.9, v));
+      pts.push(v);
+    }
+    return pts;
+  };
+
+  const markets = [
+    { id: "MKT-001", q: "BTC close > $200,000 by Dec 31, 2026", cat: "Crypto", yes: 0.6234, tvl: "$862.4k", vol: "$128.1k", time: "14d 08h", delta: +0.021, status: "active", seed: 11, trend: 2 },
+    { id: "MKT-002", q: "GPT-5 GA before Jul 1, 2026", cat: "AI", yes: 0.892, tvl: "$528.8k", vol: "$142.4k", time: "71d", delta: +0.004, status: "active", seed: 7, trend: 1 },
+    { id: "MKT-003", q: "FrontierMath model > 90% by Sep 2026", cat: "AI", yes: 0.712, tvl: "$342.2k", vol: "$88.7k", time: "126d", delta: +0.028, status: "active", seed: 23, trend: 3 },
+    { id: "MKT-004", q: "ETH/BTC close > 0.06 by end Q2", cat: "Crypto", yes: 0.443, tvl: "$214.7k", vol: "$41.9k", time: "42d 11h", delta: +0.012, status: "active", seed: 19, trend: -1 },
+    { id: "MKT-005", q: "SOL daily active addr > 4M (7d avg) by Jun", cat: "Crypto", yes: 0.58, tvl: "$176.3k", vol: "$32.1k", time: "58d 06h", delta: +0.009, status: "active", seed: 31, trend: 0 },
+    { id: "MKT-006", q: "US CPI YoY < 2.5% in June 2026", cat: "Macro", yes: 0.364, tvl: "$91.4k", vol: "$18.2k", time: "62d", delta: -0.017, status: "active", seed: 47, trend: -2 },
+    { id: "MKT-007", q: "FOMC cut ≥50bps at May 2026 meeting", cat: "Macro", yes: 0.182, tvl: "$88.1k", vol: "$24.3k", time: "2d 04h", delta: -0.041, status: "expiring", seed: 13, trend: -3 },
+    { id: "MKT-008", q: "BTC hashrate ATH in May 2026", cat: "Crypto", yes: 0.74, tvl: "$62.1k", vol: "$12.6k", time: "38d", delta: +0.022, status: "active", seed: 61, trend: 2 },
+    { id: "MKT-009", q: "ECB holds rates at June 2026 meeting", cat: "Macro", yes: 0.56, tvl: "$54.8k", vol: "$9.9k", time: "54d", delta: -0.008, status: "active", seed: 73, trend: 0 },
+    { id: "MKT-010", q: "US state passes AI liability bill in 2026", cat: "Politics", yes: 0.31, tvl: "$42.6k", vol: "$6.2k", time: "198d", delta: -0.004, status: "active", seed: 89, trend: -1 },
+    { id: "MKT-011", q: "Apple ships Vision successor by EOY", cat: "Tech", yes: 0.41, tvl: "$38.4k", vol: "$5.1k", time: "254d", delta: +0.006, status: "active", seed: 101, trend: 0 },
+    { id: "MKT-012", q: "Lakers reach NBA Finals 2026", cat: "Sports", yes: 0.22, tvl: "$24.8k", vol: "$3.9k", time: "14d", delta: -0.012, status: "active", seed: 113, trend: -1 },
+    { id: "MKT-R01", q: "BTC all-time high in Q1 2026", cat: "Crypto", yes: 0.95, tvl: "$284k", vol: "—", time: "Mar 31", delta: 0, status: "resolved-yes", seed: 3, trend: 3 },
+    { id: "MKT-R02", q: "Fed cut at March 2026 meeting", cat: "Macro", yes: 0.14, tvl: "$182k", vol: "—", time: "Mar 19", delta: 0, status: "resolved-no", seed: 5, trend: -3 },
+  ];
+
+  // ---------- Sparkline component ----------
+  const Spark = ({ pts, color }) => {
+    const W = 80, H = 20;
+    const min = Math.min(...pts), max = Math.max(...pts);
+    const r = max - min || 1;
+    const toX = i => (i / (pts.length - 1)) * W;
+    const toY = v => H - 1 - ((v - min) / r) * (H - 2);
+    const d = pts.map((v, i) => `${i === 0 ? "M" : "L"} ${toX(i).toFixed(1)} ${toY(v).toFixed(1)}`).join(" ");
+    const last = pts[pts.length - 1];
+    return (
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: "block" }}>
+        <line x1="0" y1={toY(0.5)} x2={W} y2={toY(0.5)} stroke="var(--line-2)" strokeWidth="0.5" strokeDasharray="1 2" />
+        <path d={d} stroke={color} strokeWidth="1" fill="none" />
+        <circle cx={toX(pts.length - 1)} cy={toY(last)} r="1.5" fill={color} />
+      </svg>
+    );
+  };
+
+  // ---------- Row ----------
+  const Row = ({ m, selected, onClick }) => {
+    const pct = (m.yes * 100).toFixed(1);
+    const noPct = (100 - pct).toFixed(1);
+    const noPrice = 1 - m.yes;
+    const pts = sparkFor(m.seed, m.trend);
+    const sparkColor = m.trend > 0 ? "var(--yes)" : m.trend < 0 ? "var(--no)" : "var(--text-dim)";
+    const resolved = m.status.startsWith("resolved");
+    const stateEl = m.status === "active"
+      ? <span className="tstate active">ACTIVE</span>
+      : m.status === "expiring"
+      ? <span className="tstate warn">&lt;24H</span>
+      : m.status === "resolved-yes"
+      ? <span className="tstate yes">YES</span>
+      : <span className="tstate no">NO</span>;
+
+    return (
+      <div
+        className={`trow ${selected ? "selected" : ""} ${resolved ? "resolved" : ""}`}
+        onClick={onClick}
+      >
+        <div className="tid">{m.id}</div>
+        <div className="tq">
+          <span className="tq-cat">
+            <span className="swatch" style={{ background: CATS[m.cat] }} />{m.cat}
+          </span>
+          <span className="tq-txt">{m.q}</span>
+        </div>
+        <div className="r tyes">{m.yes.toFixed(4)}</div>
+        <div className="r tno">{noPrice.toFixed(4)}</div>
+        <div className={`r tdelta ${m.delta >= 0 ? "up" : "down"}`}>
+          {resolved ? "—" : `${m.delta >= 0 ? "+" : ""}${m.delta.toFixed(3)}`}
+        </div>
+        <div className="tspark"><Spark pts={pts} color={sparkColor} /></div>
+        <div className="r tdim">{m.tvl}</div>
+        <div className="r tmut">{m.vol}</div>
+        <div className="r">{stateEl}</div>
+      </div>
+    );
+  };
+
+  const App = () => {
+    const [sel, setSel] = React.useState("MKT-001");
+    return (
+      <>{markets.map(m => (
+        <Row key={m.id} m={m} selected={sel === m.id} onClick={() => setSel(m.id)} />
+      ))}</>
+    );
+  };
+  ReactDOM.createRoot(document.getElementById("rows")).render(<App />);
+
+  // ---------- Detail chart ----------
+  const DetailChart = () => {
+    const W = 260, H = 104;
+    const data = React.useMemo(() => {
+      const pts = []; let p = 0.54, s = 999;
+      const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+      for (let i = 0; i <= 60; i++) {
+        p += (rnd() - 0.48) * 0.03;
+        p = Math.max(0.4, Math.min(0.72, p));
+        pts.push(p);
+      }
+      return pts;
+    }, []);
+    const toX = i => (i / (data.length - 1)) * (W - 4) + 2;
+    const toY = v => H - 4 - (v - 0.3) / 0.5 * (H - 8);
+    const path = data.map((v, i) => `${i === 0 ? "M" : "L"} ${toX(i).toFixed(1)} ${toY(v).toFixed(1)}`).join(" ");
+    const last = data[data.length - 1];
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "100%" }}>
+        <line x1="2" y1={toY(0.5)} x2={W - 2} y2={toY(0.5)} stroke="var(--line-2)" strokeDasharray="1 3" strokeWidth="0.5" />
+        <text x="4" y={toY(0.5) - 3} fontFamily="JetBrains Mono" fontSize="8" fill="var(--muted)">50%</text>
+        <path d={path} stroke="var(--accent)" strokeWidth="1" fill="none" />
+        <circle cx={toX(data.length - 1)} cy={toY(last)} r="2" fill="var(--accent)" />
+        <text x="4" y={H - 3} fontFamily="JetBrains Mono" fontSize="8" fill="var(--muted)" letterSpacing="0.05em">30D AGO</text>
+        <text x={W - 4} y={H - 3} fontFamily="JetBrains Mono" fontSize="8" fill="var(--muted)" textAnchor="end" letterSpacing="0.05em">NOW</text>
+      </svg>
+    );
+  };
+  ReactDOM.createRoot(document.getElementById("det-chart")).render(<DetailChart />);
+</script>
+
+</body>
+</html>

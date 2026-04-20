@@ -15,3 +15,11 @@ export const RPC_URL =
   CLUSTER === "devnet"
     ? "https://api.devnet.solana.com"
     : "http://localhost:8899";
+
+export function solscanTxUrl(signature: string): string {
+  return `https://solscan.io/tx/${signature}?cluster=${CLUSTER}`;
+}
+
+export function solscanAccountUrl(address: string): string {
+  return `https://solscan.io/account/${address}?cluster=${CLUSTER}`;
+}

@@ -8,23 +8,31 @@ import { Program, BN } from "@coral-xyz/anchor";
 import idl from "@/lib/pm_amm_idl.json";
 import { USDC_MINT } from "@/lib/constants";
 
+export type SwapMode = "buy" | "sell";
+
 export interface SwapQuote {
   output: number;
   error: string | null;
 }
 
+/**
+ * On-chain swap quote via simulateTransaction.
+ * - buy: USDC → YES/NO (amount is in USDC, output is tokens)
+ * - sell: YES/NO → USDC (amount is in tokens, output is USDC)
+ */
 export function useSwapQuote(
   marketPda: string | undefined,
   side: "yes" | "no",
-  amountUsdc: number
+  mode: SwapMode,
+  amount: number
 ) {
   const { connection } = useConnection();
   const { publicKey } = useWallet();
 
   return useQuery<SwapQuote | null>({
-    queryKey: ["swap-quote", marketPda, side, amountUsdc],
+    queryKey: ["swap-quote", marketPda, side, mode, amount],
     queryFn: async () => {
-      if (!publicKey || !marketPda || amountUsdc <= 0) return null;
+      if (!publicKey || !marketPda || amount <= 0) return null;
 
       try {
         const market = new PublicKey(marketPda);
@@ -41,24 +49,27 @@ export function useSwapQuote(
         const userUsdc = await getAssociatedTokenAddress(USDC_MINT, publicKey);
         const userYes = await getAssociatedTokenAddress(yesMint, publicKey);
         const userNo = await getAssociatedTokenAddress(noMint, publicKey);
-        const outputAta = side === "yes" ? userYes : userNo;
 
-        // Check all ATAs exist — if not, include create instructions in simulation
+        // Output ATA depends on direction
+        const outputAta = mode === "buy"
+          ? (side === "yes" ? userYes : userNo)  // buying tokens → output is token ATA
+          : userUsdc;                             // selling tokens → output is USDC ATA
+
+        // Ensure ATAs exist for simulation
         const { createAssociatedTokenAccountInstruction } = await import("@solana/spl-token");
         const ataIxs: any[] = [];
-        const atas = [
+        for (const { ata, mint } of [
           { ata: userUsdc, mint: USDC_MINT },
           { ata: userYes, mint: yesMint },
           { ata: userNo, mint: noMint },
-        ];
-        for (const { ata, mint } of atas) {
+        ]) {
           const info = await connection.getAccountInfo(ata);
           if (!info) {
             ataIxs.push(createAssociatedTokenAccountInstruction(publicKey, ata, publicKey, mint));
           }
         }
 
-        // Get pre-balance of output ATA
+        // Pre-balance of output ATA
         let preBal = 0;
         try {
           const info = await connection.getAccountInfo(outputAta);
@@ -66,11 +77,20 @@ export function useSwapQuote(
             const view = new DataView(info.data.buffer, info.data.byteOffset);
             preBal = Number(view.getBigUint64(64, true));
           }
-        } catch { /* ATA doesn't exist, preBal = 0 */ }
+        } catch { /* ATA doesn't exist */ }
 
-        // Build tx with ATA creates (if needed) + swap
-        const direction = side === "yes" ? { usdcToYes: {} } : { usdcToNo: {} };
-        const lamports = Math.floor(amountUsdc * 1e6);
+        // Direction
+        let direction: any;
+        if (mode === "buy") {
+          direction = side === "yes" ? { usdcToYes: {} } : { usdcToNo: {} };
+        } else {
+          direction = side === "yes" ? { yesToUsdc: {} } : { noToUsdc: {} };
+        }
+
+        // Amount in lamports: USDC (buy) or token amount (sell)
+        const lamports = mode === "buy"
+          ? Math.floor(amount * 1e6)
+          : Math.floor(amount);
 
         const ix = await (program.methods as any)
           .swap(direction, new BN(lamports), new BN(0))
@@ -92,16 +112,10 @@ export function useSwapQuote(
 
         const sim = await connection.simulateTransaction(tx, undefined, [outputAta]);
 
-        console.log("[swap-quote] sim logs:", sim.value.logs);
-        console.log("[swap-quote] sim err:", sim.value.err);
-        console.log("[swap-quote] sim accounts:", (sim.value as any).accounts);
-        console.log("[swap-quote] CU used:", sim.value.unitsConsumed);
-
         if (sim.value.err) {
           return { output: 0, error: `Sim error: ${JSON.stringify(sim.value.err)}` };
         }
 
-        // Read post-balance from simulated accounts
         const postAccounts = (sim.value as any).accounts;
         if (postAccounts?.[0]?.data) {
           const buf = Uint8Array.from(atob(postAccounts[0].data[0]), c => c.charCodeAt(0));
@@ -110,13 +124,12 @@ export function useSwapQuote(
           return { output: postBal - preBal, error: null };
         }
 
-        // Fallback: couldn't read accounts from sim, use logs
         return { output: 0, error: "Could not read simulation result" };
       } catch (e: any) {
         return { output: 0, error: e.message?.slice(0, 80) || "Unknown error" };
       }
     },
-    enabled: !!publicKey && !!marketPda && amountUsdc > 0,
+    enabled: !!publicKey && !!marketPda && amount > 0,
     staleTime: 10_000,
     retry: false,
   });

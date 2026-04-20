@@ -2,17 +2,20 @@
 
 import { useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Figure } from "@/components/ui/figure";
+import { MetaRow } from "@/components/ui/meta-row";
 import { useProgram } from "@/hooks/use-program";
+import { usePositionValue } from "@/hooks/use-position-value";
 import { formatUsdc } from "@/lib/pm-math";
 import type { MarketData } from "@/hooks/use-markets";
 import type { UserTokens } from "@/hooks/use-user-tokens";
 import { PublicKey, ComputeBudgetProgram } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from "@solana/spl-token";
-import { USDC_MINT } from "@/lib/constants";
+import { USDC_MINT, solscanTxUrl } from "@/lib/constants";
 import { BN } from "@coral-xyz/anchor";
+import { toast } from "sonner";
 
 export function PositionCard({
   market,
@@ -22,52 +25,48 @@ export function PositionCard({
   tokens: UserTokens | null;
 }) {
   const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
   const program = useProgram();
   const { publicKey } = useWallet();
+  const { data: posValue, isLoading: valueLoading } = usePositionValue(market.publicKey, tokens);
 
-  if (!tokens || (tokens.yes === 0 && tokens.no === 0)) return null;
+  if (!publicKey) return null;
 
-  const redeemable = Math.min(tokens.yes, tokens.no);
-  const winningSide = market.winningSide; // 0=unresolved, 1=yes, 2=no
-  const winningBalance = winningSide === 1 ? tokens.yes : winningSide === 2 ? tokens.no : 0;
+  const yesAmount = tokens?.yes ?? 0;
+  const noAmount = tokens?.no ?? 0;
+  const usdcBalance = tokens?.usdc ?? 0;
+  const hasPosition = yesAmount > 0 || noAmount > 0;
+  const redeemable = Math.min(yesAmount, noAmount);
+  const winningSide = market.winningSide;
+  const winningBalance = winningSide === 1 ? yesAmount : winningSide === 2 ? noAmount : 0;
 
   const handleRedeem = async () => {
     if (!program || !publicKey || redeemable <= 0) return;
     setLoading(true);
-    setMsg(null);
     try {
       const marketPda = new PublicKey(market.publicKey);
       const yesMint = PublicKey.findProgramAddressSync(
-        [Buffer.from("yes_mint"), marketPda.toBuffer()], program.programId
-      )[0];
+        [Buffer.from("yes_mint"), marketPda.toBuffer()], program.programId)[0];
       const noMint = PublicKey.findProgramAddressSync(
-        [Buffer.from("no_mint"), marketPda.toBuffer()], program.programId
-      )[0];
+        [Buffer.from("no_mint"), marketPda.toBuffer()], program.programId)[0];
       const vaultPda = PublicKey.findProgramAddressSync(
-        [Buffer.from("vault"), marketPda.toBuffer()], program.programId
-      )[0];
-
-      await (program.methods as any)
+        [Buffer.from("vault"), marketPda.toBuffer()], program.programId)[0];
+      const tx = await (program.methods as any)
         .redeemPair(new BN(redeemable))
         .accounts({
-          signer: publicKey,
-          market: marketPda,
-          collateralMint: USDC_MINT,
-          yesMint,
-          noMint,
-          vault: vaultPda,
-          userYes: new PublicKey(tokens.yesAta),
-          userNo: new PublicKey(tokens.noAta),
-          userCollateral: new PublicKey(tokens.usdcAta),
+          signer: publicKey, market: marketPda, collateralMint: USDC_MINT,
+          yesMint, noMint, vault: vaultPda,
+          userYes: new PublicKey(tokens!.yesAta),
+          userNo: new PublicKey(tokens!.noAta),
+          userCollateral: new PublicKey(tokens!.usdcAta),
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .preInstructions([ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })])
         .rpc();
-
-      setMsg(`Redeemed ${formatUsdc(redeemable)} USDC`);
+      toast.success(`Redeemed ${formatUsdc(redeemable)} USDC`, {
+        action: { label: "Solscan ↗", onClick: () => window.open(solscanTxUrl(tx), "_blank") },
+      });
     } catch (err: any) {
-      setMsg(`Error: ${err.message?.slice(0, 80)}`);
+      toast.error("Redeem failed", { description: err.message?.slice(0, 120) });
     } finally {
       setLoading(false);
     }
@@ -76,77 +75,88 @@ export function PositionCard({
   const handleClaimWinnings = async () => {
     if (!program || !publicKey || winningBalance <= 0) return;
     setLoading(true);
-    setMsg(null);
     try {
       const marketPda = new PublicKey(market.publicKey);
       const winningMint = PublicKey.findProgramAddressSync(
         [Buffer.from(winningSide === 1 ? "yes_mint" : "no_mint"), marketPda.toBuffer()],
-        program.programId
-      )[0];
+        program.programId)[0];
       const vaultPda = PublicKey.findProgramAddressSync(
-        [Buffer.from("vault"), marketPda.toBuffer()], program.programId
-      )[0];
+        [Buffer.from("vault"), marketPda.toBuffer()], program.programId)[0];
       const userWinning = await getAssociatedTokenAddress(winningMint, publicKey);
       const userUsdc = await getAssociatedTokenAddress(USDC_MINT, publicKey);
-
-      await (program.methods as any)
+      const tx = await (program.methods as any)
         .claimWinnings(new BN(winningBalance))
         .accounts({
-          signer: publicKey,
-          market: marketPda,
-          collateralMint: USDC_MINT,
-          winningMint,
-          vault: vaultPda,
-          userWinning,
-          userCollateral: userUsdc,
+          signer: publicKey, market: marketPda, collateralMint: USDC_MINT,
+          winningMint, vault: vaultPda, userWinning, userCollateral: userUsdc,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .rpc();
-
-      setMsg(`Claimed ${formatUsdc(winningBalance)} USDC!`);
+      toast.success(`Claimed ${formatUsdc(winningBalance)} USDC!`, {
+        action: { label: "Solscan ↗", onClick: () => window.open(solscanTxUrl(tx), "_blank") },
+      });
     } catch (err: any) {
-      setMsg(`Error: ${err.message?.slice(0, 80)}`);
+      toast.error("Claim failed", { description: err.message?.slice(0, 120) });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Your Position</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex gap-4 text-sm">
-          <div>
-            <span className="text-muted-foreground">YES: </span>
-            <span className="font-mono">{formatUsdc(tokens.yes)}</span>
-          </div>
-          <div>
-            <span className="text-muted-foreground">NO: </span>
-            <span className="font-mono">{formatUsdc(tokens.no)}</span>
-          </div>
-        </div>
+    <div className="border border-line p-[16px] space-y-[12px]">
+      <div className="text-caption">YOUR POSITION</div>
 
-        {redeemable > 0 && !market.resolved && (
-          <Button variant="outline" className="w-full" onClick={handleRedeem} disabled={loading}>
-            Redeem {formatUsdc(redeemable)} pairs for USDC
-          </Button>
-        )}
+      <MetaRow label="USDC Balance" value={`${formatUsdc(usdcBalance)} USDC`} last={!hasPosition} />
 
-        {market.resolved && winningBalance > 0 && (
-          <div className="space-y-2">
-            <Badge variant="default">
-              {winningSide === 1 ? "YES" : "NO"} won!
-            </Badge>
-            <Button className="w-full" onClick={handleClaimWinnings} disabled={loading}>
-              Claim {formatUsdc(winningBalance)} USDC
+      {hasPosition ? (
+        <>
+          <div className="flex gap-[32px]">
+            <Figure label="YES" value={formatUsdc(yesAmount)} size="data" color="yes" />
+            <Figure label="NO" value={formatUsdc(noAmount)} size="data" color="no" />
+          </div>
+
+          {/* On-chain value */}
+          <div className="border-t border-line pt-[8px]">
+            {market.resolved ? (
+              <MetaRow label="Payout" value={`${formatUsdc(winningBalance)} USDC`} last />
+            ) : valueLoading ? (
+              <p className="text-muted text-[12px] font-mono">Calculating...</p>
+            ) : posValue?.error ? (
+              <p className="text-no text-[11px] font-mono">{posValue.error}</p>
+            ) : posValue ? (
+              <>
+                {yesAmount > 0 && <MetaRow label="YES → USDC" value={formatUsdc(posValue.yesValueUsdc)} />}
+                {noAmount > 0 && <MetaRow label="NO → USDC" value={formatUsdc(posValue.noValueUsdc)} />}
+                <MetaRow label="Total value" value={`${formatUsdc(posValue.totalUsdc)} USDC`} last />
+              </>
+            ) : null}
+          </div>
+
+          {redeemable > 0 && !market.resolved && (
+            <Button variant="secondary" className="w-full" onClick={handleRedeem} disabled={loading}>
+              Redeem {formatUsdc(redeemable)} pairs
             </Button>
-          </div>
-        )}
+          )}
 
-        {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
-      </CardContent>
-    </Card>
+          {market.resolved && winningBalance > 0 && (
+            <div className="space-y-[8px]">
+              <Badge variant={winningSide === 1 ? "yes" : "no"} dot>
+                {winningSide === 1 ? "YES" : "NO"} WON
+              </Badge>
+              <Button
+                variant={winningSide === 1 ? "yes" : "no"}
+                className="w-full"
+                onClick={handleClaimWinnings}
+                disabled={loading}
+              >
+                Claim {formatUsdc(winningBalance)} USDC
+              </Button>
+            </div>
+          )}
+        </>
+      ) : (
+        <p className="text-muted text-[12px] font-mono">No YES/NO tokens. Trade to open a position.</p>
+      )}
+    </div>
   );
 }

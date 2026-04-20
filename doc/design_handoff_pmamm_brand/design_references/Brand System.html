@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1280" />
+<title>pm/amm — Brand</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="shared/tokens.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="shared/logo.js"></script>
+<style>
+  .page { max-width: 1120px; margin: 0 auto; padding: 56px 48px 120px; }
+
+  .topnav {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0 0 28px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 80px;
+  }
+  .topnav-links { display: flex; gap: 28px; }
+  .topnav a {
+    font-size: 13px; color: var(--muted); text-decoration: none;
+    letter-spacing: -0.005em;
+  }
+  .topnav a:hover, .topnav a.active { color: var(--text-hi); }
+
+  .intro {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 80px;
+    padding-bottom: 72px;
+    margin-bottom: 72px;
+    border-bottom: 1px solid var(--line);
+  }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted); letter-spacing: 0.08em;
+    margin-bottom: 24px;
+  }
+  .intro h1 {
+    font-family: var(--font-sans);
+    font-size: 44px; font-weight: 400;
+    letter-spacing: -0.03em; line-height: 1.05;
+    color: var(--text-hi);
+    margin: 0 0 24px;
+  }
+  .intro p {
+    font-size: 15px; line-height: 1.6;
+    color: var(--text-dim);
+    max-width: 50ch;
+    margin: 0;
+  }
+  .intro-right {
+    display: flex; flex-direction: column; gap: 20px;
+    padding-left: 48px;
+    border-left: 1px solid var(--line);
+  }
+  .intro-row {
+    display: grid; grid-template-columns: 140px 1fr; gap: 24px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+    align-items: baseline;
+  }
+  .intro-row:last-child { border-bottom: none; }
+  .intro-row dt {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted); letter-spacing: 0.05em;
+  }
+  .intro-row dd {
+    margin: 0; font-size: 14px; color: var(--text);
+  }
+
+  .section {
+    padding: 56px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .section:last-of-type { border-bottom: none; }
+  .sec-head {
+    display: grid; grid-template-columns: 180px 1fr; gap: 48px;
+    margin-bottom: 40px;
+    align-items: baseline;
+  }
+  .sec-num {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted); letter-spacing: 0.08em;
+  }
+  .sec-title {
+    font-family: var(--font-sans);
+    font-size: 22px; font-weight: 400;
+    letter-spacing: -0.02em;
+    color: var(--text-hi);
+    margin: 0 0 8px;
+  }
+  .sec-desc {
+    font-size: 14px; line-height: 1.55;
+    color: var(--text-dim);
+    max-width: 58ch;
+    margin: 0;
+  }
+  .sec-body { margin-left: calc(180px + 48px); }
+
+  /* Color */
+  .ramp { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1px; margin-bottom: 24px; }
+  .swatch {
+    padding: 16px 14px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .swatch-chip { height: 60px; margin-bottom: 14px; border-radius: 2px; }
+  .swatch-name {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--text); letter-spacing: 0.02em;
+  }
+  .swatch-val {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--muted); margin-top: 3px;
+  }
+
+  .semantic { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; }
+
+  /* Type */
+  .type-row {
+    display: grid; grid-template-columns: 140px 1fr 140px;
+    gap: 32px; padding: 18px 0;
+    border-bottom: 1px solid var(--line);
+    align-items: baseline;
+  }
+  .type-row:last-child { border-bottom: none; }
+  .type-label {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted); letter-spacing: 0.05em;
+  }
+  .type-meta {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted); text-align: right;
+  }
+
+  /* Logo cells */
+  .logos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; }
+  .logo-cell {
+    aspect-ratio: 2 / 1;
+    border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg); position: relative;
+  }
+  .logo-cell.inverted { background: var(--text-hi); }
+  .logo-cell .cell-tag {
+    position: absolute; top: 12px; left: 14px;
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--muted); letter-spacing: 0.05em;
+  }
+  .logo-cell.inverted .cell-tag { color: oklch(0.45 0.01 70); }
+
+  /* Tokens table */
+  .tokens {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+  }
+  .tokens th, .tokens td {
+    text-align: left; padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .tokens th {
+    font-family: var(--font-mono); font-weight: 400;
+    font-size: 11px; color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+  .tokens td.mono { font-family: var(--font-mono); color: var(--text); font-size: 12px; }
+  .tokens td.desc { color: var(--text-dim); }
+  .tokens tr:last-child td { border-bottom: none; }
+
+  /* Components */
+  .spec {
+    border: 1px solid var(--line);
+    padding: 20px 22px;
+  }
+  .spec-id {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--muted); letter-spacing: 0.05em;
+    margin-bottom: 16px;
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 6px; padding: 8px 14px; border-radius: var(--r-md);
+    font-family: var(--font-sans); font-size: 13px; font-weight: 500;
+    border: 1px solid transparent;
+    cursor: pointer; transition: all 120ms ease;
+    letter-spacing: -0.005em;
+  }
+  .btn-primary { background: var(--text-hi); color: var(--bg); }
+  .btn-primary:hover { background: var(--text); }
+  .btn-secondary { background: transparent; color: var(--text); border-color: var(--line-2); }
+  .btn-secondary:hover { border-color: var(--muted); }
+  .btn-ghost { background: transparent; color: var(--text-dim); }
+  .btn-ghost:hover { color: var(--text-hi); }
+  .btn-yes { background: var(--yes-soft); color: var(--yes); border-color: color-mix(in oklch, var(--yes) 25%, transparent); }
+  .btn-no  { background: var(--no-soft);  color: var(--no);  border-color: color-mix(in oklch, var(--no) 25%, transparent); }
+
+  /* Badges */
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 2px 8px; border-radius: 2px;
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    border: 1px solid var(--line-2); color: var(--text-dim);
+    background: transparent;
+  }
+  .badge-yes { color: var(--yes); border-color: color-mix(in oklch, var(--yes) 30%, transparent); }
+  .badge-no { color: var(--no); border-color: color-mix(in oklch, var(--no) 30%, transparent); }
+  .badge-dot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+
+  /* Input */
+  .input {
+    display: flex; align-items: center;
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-md);
+    padding: 0 12px;
+    background: var(--bg);
+  }
+  .input:focus-within { border-color: var(--muted); }
+  .input input {
+    background: transparent; border: none; outline: none;
+    color: var(--text-hi); font-family: var(--font-mono);
+    font-size: 16px; padding: 10px 0; width: 100%;
+  }
+  .input .unit {
+    font-family: var(--font-mono); font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* Prob bar */
+  .probbar {
+    display: flex; height: 2px; background: var(--line);
+    overflow: hidden; border-radius: 2px;
+  }
+  .probbar .y { background: var(--yes); }
+  .probbar .n { background: var(--no); opacity: 0.7; }
+
+  .footer {
+    margin-top: 80px; padding-top: 24px;
+    border-top: 1px solid var(--line);
+    display: flex; justify-content: space-between;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted); letter-spacing: 0.05em;
+  }
+</style>
+</head>
+<body>
+
+<div class="page" data-screen-label="Brand System">
+
+  <nav class="topnav">
+    <div id="wordmark"></div>
+    <div class="topnav-links">
+      <a href="Home.html">Markets</a>
+      <a href="#" class="active">Brand</a>
+      <a href="#">Docs</a>
+    </div>
+  </nav>
+
+  <!-- INTRO -->
+  <div class="intro">
+    <div>
+      <div class="eyebrow">Brand system / v1</div>
+      <h1>A quiet interface for pricing probability.</h1>
+      <p>pm/amm is a prediction market AMM on Solana. The brand is deliberately restrained — a neutral, warm-charcoal surface that puts numbers and markets first. No gradients, no glow, no ornament.</p>
+    </div>
+    <dl class="intro-right">
+      <div class="intro-row">
+        <dt>Surface</dt><dd>Warm charcoal, single elevation</dd>
+      </div>
+      <div class="intro-row">
+        <dt>Type</dt><dd>Inter Tight · JetBrains Mono</dd>
+      </div>
+      <div class="intro-row">
+        <dt>Scale</dt><dd>4 / 8 / 12 / 16 / 24 / 32 / 48</dd>
+      </div>
+      <div class="intro-row">
+        <dt>Motion</dt><dd>120ms linear · used sparingly</dd>
+      </div>
+      <div class="intro-row">
+        <dt>Radius</dt><dd>2 / 4 / 6 / 10</dd>
+      </div>
+    </dl>
+  </div>
+
+  <!-- 01 LOGO -->
+  <section class="section">
+    <div class="sec-head">
+      <div class="sec-num">01 / Mark</div>
+      <div>
+        <h2 class="sec-title">Wordmark</h2>
+        <p class="sec-desc">A bracketed <span class="mono">p</span> sits beside the lockup. No probability curve, no live animation — the mark stays still so the data can move.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="logos">
+        <div class="logo-cell"><span class="cell-tag">primary</span><div id="wm-a"></div></div>
+        <div class="logo-cell inverted"><span class="cell-tag">inverted</span><div id="wm-b"></div></div>
+        <div class="logo-cell"><span class="cell-tag">large</span><div id="wm-c"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 COLOR -->
+  <section class="section">
+    <div class="sec-head">
+      <div class="sec-num">02 / Color</div>
+      <div>
+        <h2 class="sec-title">Palette</h2>
+        <p class="sec-desc">A six-step neutral ramp, two semantic signals for outcomes, one accent reserved for the system's voice. Chromas stay under 0.012 on the neutrals so the surface reads as truly neutral.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div style="font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-bottom: 10px; letter-spacing: 0.05em;">neutral</div>
+      <div class="ramp">
+        <div class="swatch"><div class="swatch-chip" style="background: var(--bg);"></div><div class="swatch-name">bg</div><div class="swatch-val">0.145 / 60</div></div>
+        <div class="swatch"><div class="swatch-chip" style="background: var(--surface);"></div><div class="swatch-name">surface</div><div class="swatch-val">0.175 / 60</div></div>
+        <div class="swatch"><div class="swatch-chip" style="background: var(--surface-2);"></div><div class="swatch-name">surface-2</div><div class="swatch-val">0.205 / 60</div></div>
+        <div class="swatch"><div class="swatch-chip" style="background: var(--line-2);"></div><div class="swatch-name">line</div><div class="swatch-val">0.305 / 60</div></div>
+        <div class="swatch"><div class="swatch-chip" style="background: var(--text-dim);"></div><div class="swatch-name">text-dim</div><div class="swatch-val">0.70 / 60</div></div>
+        <div class="swatch"><div class="swatch-chip" style="background: var(--text-hi);"></div><div class="swatch-name">text-hi</div><div class="swatch-val">0.98 / 80</div></div>
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin: 28px 0 10px; letter-spacing: 0.05em;">semantic</div>
+      <div class="semantic">
+        <div class="swatch"><div class="swatch-chip" style="background: var(--yes);"></div><div class="swatch-name">yes · sage</div><div class="swatch-val">0.70 0.09 150</div></div>
+        <div class="swatch"><div class="swatch-chip" style="background: var(--no);"></div><div class="swatch-name">no · clay</div><div class="swatch-val">0.66 0.11 30</div></div>
+        <div class="swatch"><div class="swatch-chip" style="background: var(--accent);"></div><div class="swatch-name">accent · amber</div><div class="swatch-val">0.78 0.08 75</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 TYPE -->
+  <section class="section">
+    <div class="sec-head">
+      <div class="sec-num">03 / Type</div>
+      <div>
+        <h2 class="sec-title">Typography</h2>
+        <p class="sec-desc">Inter Tight for everything readable, JetBrains Mono for numbers, times and on-chain addresses. Two families, never three.</p>
+      </div>
+    </div>
+    <div class="sec-body">
+      <div class="type-row">
+        <div class="type-label">Display</div>
+        <div style="font-size: 44px; font-weight: 400; letter-spacing: -0.03em; color: var(--text-hi); line-height: 1.05;">A quiet interface for pricing probability.</div>
+        <div class="type-meta">44 / 46 / -3%</div>
+      </div>
+      <div class="type-row">
+        <div class="type-label">Title</div>
+        <div style="font-size: 22px; font-weight: 400; letter-spacing: -0.02em; color: var(--text-hi);">Open markets</div>
+        <div class="type-meta">22 / 28 / -2%</div>
+      </div>
+      <div class="type-row">
+        <div class="type-label">Body</div>
+        <div style="font-size: 14px; color: var(--text); line-height: 1.55;">The AMM uses a dynamic liquidity curve. Liquidity decreases as markets approach expiry.</div>
+        <div class="type-meta">14 / 22</div>
+      </div>
+      <div class="type-row">
+        <div class="type-label">Caption</div>
+        <div class="mono" style="font-size: 11px; color: var(--muted); letter-spacing: 0.05em;">POOL VALUE · 24H</div>
+        <div class="type-meta">11 mono / +5%</div>
+      </div>
+      <div class="type-row">
+        <div class="type-label">Figure</div>
+        <div class="mono tnum" style="font-size: 32px; color: var(--text-hi); letter-spacing: -0.02em;">0.6234</div>
+        <div class="type-meta">32 mono tnum</div>
+      </div>
+      <div class="type-row">
+        <div class="type-label">Data</div>
+        <div class="mono tnum" style="font-size: 13px; color: var(--text);">$99.92 &nbsp; 14d 08h &nbsp; 1,234.56 YES &nbsp; 7F3k…bA2q</div>
+        <div class="type-meta">13 mono tnum</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 TOKENS -->
+  <section class="section">
+    <div class="sec-head">
+      <div class="sec-num">04 / Tokens</div>
+      <div>
+        <h2 class="sec-title">Radius &amp; spacing</h2>
+        <p class="sec-desc">Two tables. That is the whole token layer.</p>
+      </div>
+    </div>
+    <div class="sec-body" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1px; border: 1px solid var(--line);">
+      <table class="tokens">
+        <thead><tr><th>Radius</th><th>px</th><th>Use</th></tr></thead>
+        <tbody>
+          <tr><td>sm</td><td class="mono">2</td><td class="desc">Chips, ticks</td></tr>
+          <tr><td>md</td><td class="mono">4</td><td class="desc">Badges</td></tr>
+          <tr><td>lg</td><td class="mono">6</td><td class="desc">Buttons, inputs</td></tr>
+          <tr><td>xl</td><td class="mono">10</td><td class="desc">Cards, panels</td></tr>
+        </tbody>
+      </table>
+      <table class="tokens">
+        <thead><tr><th>Space</th><th>px</th><th>Use</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td class="mono">4</td><td class="desc">Inline gap</td></tr>
+          <tr><td>2</td><td class="mono">8</td><td class="desc">Stack, icon</td></tr>
+          <tr><td>3</td><td class="mono">12</td><td class="desc">Control</td></tr>
+          <tr><td>4</td><td class="mono">16</td><td class="desc">Card padding</td></tr>
+          <tr><td>6</td><td class="mono">24</td><td class="desc">Section</td></tr>
+          <tr><td>8</td><td class="mono">32</td><td class="desc">Block</td></tr>
+          <tr><td>12</td><td class="mono">48</td><td class="desc">Page gutter</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 05 COMPONENTS -->
+  <section class="section">
+    <div class="sec-head">
+      <div class="sec-num">05 / Components</div>
+      <div>
+        <h2 class="sec-title">Primitives</h2>
+        <p class="sec-desc">shadcn-compatible. Everything is a rectangle and a border.</p>
+      </div>
+    </div>
+    <div class="sec-body" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1px; border: 1px solid var(--line);">
+      <div class="spec">
+        <div class="spec-id">button</div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+          <button class="btn btn-primary">Connect wallet</button>
+          <button class="btn btn-secondary">Create market</button>
+          <button class="btn btn-ghost">Solscan ↗</button>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-yes" style="flex: 1;">Buy YES · 0.62</button>
+          <button class="btn btn-no" style="flex: 1;">Buy NO · 0.38</button>
+        </div>
+      </div>
+      <div class="spec">
+        <div class="spec-id">badge</div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <span class="badge badge-yes"><span class="badge-dot"></span>Active</span>
+          <span class="badge">Expires 4h</span>
+          <span class="badge">Resolved</span>
+          <span class="badge badge-yes">Yes</span>
+          <span class="badge badge-no">No</span>
+        </div>
+      </div>
+      <div class="spec">
+        <div class="spec-id">input.amount</div>
+        <div class="mono" style="font-size: 11px; color: var(--muted); margin-bottom: 8px; letter-spacing: 0.05em;">YOU PAY</div>
+        <div class="input"><input value="250.00" /><span class="unit">USDC</span></div>
+      </div>
+      <div class="spec">
+        <div class="spec-id">probability</div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px;">
+          <span class="mono" style="color: var(--yes);">YES 62.3%</span>
+          <span class="mono" style="color: var(--no);">NO 37.7%</span>
+        </div>
+        <div class="probbar"><div class="y" style="width: 62.3%;"></div><div class="n" style="width: 37.7%;"></div></div>
+      </div>
+      <div class="spec">
+        <div class="spec-id">figure.price</div>
+        <div style="display: flex; gap: 48px;">
+          <div>
+            <div class="mono" style="font-size: 10px; color: var(--muted); letter-spacing: 0.05em;">YES</div>
+            <div class="mono tnum" style="font-size: 28px; color: var(--yes);">0.6234</div>
+          </div>
+          <div>
+            <div class="mono" style="font-size: 10px; color: var(--muted); letter-spacing: 0.05em;">NO</div>
+            <div class="mono tnum" style="font-size: 28px; color: var(--no);">0.3766</div>
+          </div>
+        </div>
+      </div>
+      <div class="spec">
+        <div class="spec-id">meta.row</div>
+        <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 8px 0; border-bottom: 1px solid var(--line);">
+          <span style="color: var(--muted);">TVL</span>
+          <span class="mono">$862,421</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 8px 0; border-bottom: 1px solid var(--line);">
+          <span style="color: var(--muted);">24h Volume</span>
+          <span class="mono">$128,114</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 8px 0;">
+          <span style="color: var(--muted);">Expires</span>
+          <span class="mono">14d 08h</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <div>pm/amm · brand system · v1</div>
+    <div>04.20.26</div>
+  </div>
+
+</div>
+
+<script type="text/babel">
+  ReactDOM.createRoot(document.getElementById("wordmark")).render(
+    React.createElement(window.PmAmmWordmark, { size: 16, tone: "light" })
+  );
+  ReactDOM.createRoot(document.getElementById("wm-a")).render(React.createElement(window.PmAmmWordmark, { size: 20, tone: "light" }));
+  ReactDOM.createRoot(document.getElementById("wm-b")).render(React.createElement(window.PmAmmWordmark, { size: 20, tone: "dark" }));
+  ReactDOM.createRoot(document.getElementById("wm-c")).render(React.createElement(window.PmAmmWordmark, { size: 44, tone: "light" }));
+</script>
+
+</body>
+</html>

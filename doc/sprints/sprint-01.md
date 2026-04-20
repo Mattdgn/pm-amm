@@ -4,6 +4,7 @@
 **Output** : Monorepo init, build et dev fonctionnels
 
 ## Contexte
+
 POC Anchor + Next.js pour pm-AMM Solana. Monorepo classique. On pose les fondations.
 
 ## Taches
@@ -36,6 +37,7 @@ POC Anchor + Next.js pour pm-AMM Solana. Monorepo classique. On pose les fondati
 - [ ] Verifier : `cd app && pnpm dev` demarre sans erreur
 
 ## Definition of Done
+
 - `cd anchor && anchor build` passe (ou `pnpm build` from root)
 - `pnpm dev` demarre dans `app/`
 - Structure de fichiers conforme au PRD section 2.1

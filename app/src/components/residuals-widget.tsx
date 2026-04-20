@@ -2,69 +2,54 @@
 
 import { useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useProgram } from "@/hooks/use-program";
 import { useLpPosition } from "@/hooks/use-lp-position";
-import { formatUsdc } from "@/lib/pm-math";
 import type { MarketData } from "@/hooks/use-markets";
 import { PublicKey, ComputeBudgetProgram } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from "@solana/spl-token";
+import { solscanTxUrl } from "@/lib/constants";
+import { toast } from "sonner";
 
 export function ResidualsWidget({ market }: { market: MarketData }) {
   const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
   const program = useProgram();
   const { publicKey } = useWallet();
   const { data: lp } = useLpPosition(market.publicKey);
 
   if (!lp || lp.shares <= 0) return null;
 
-  // Compute pending residuals client-side
-  // pending = (cum - checkpoint) * shares
-  // We'd need the market's cum values. For now, show a claim button.
-  // The actual pending is computed on-chain by the instruction.
-
   const handleClaim = async () => {
     if (!program || !publicKey) return;
     setLoading(true);
-    setMsg(null);
     try {
       const marketPda = new PublicKey(market.publicKey);
       const yesMint = PublicKey.findProgramAddressSync(
-        [Buffer.from("yes_mint"), marketPda.toBuffer()], program.programId
-      )[0];
+        [Buffer.from("yes_mint"), marketPda.toBuffer()], program.programId)[0];
       const noMint = PublicKey.findProgramAddressSync(
-        [Buffer.from("no_mint"), marketPda.toBuffer()], program.programId
-      )[0];
+        [Buffer.from("no_mint"), marketPda.toBuffer()], program.programId)[0];
       const userYes = await getAssociatedTokenAddress(yesMint, publicKey);
       const userNo = await getAssociatedTokenAddress(noMint, publicKey);
       const [lpPda] = PublicKey.findProgramAddressSync(
         [Buffer.from("lp"), marketPda.toBuffer(), publicKey.toBuffer()],
         program.programId
       );
-
-      await (program.methods as any)
+      const tx = await (program.methods as any)
         .claimLpResiduals()
         .accounts({
-          signer: publicKey,
-          market: marketPda,
-          yesMint,
-          noMint,
-          lpPosition: lpPda,
-          userYes,
-          userNo,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          signer: publicKey, market: marketPda, yesMint, noMint,
+          lpPosition: lpPda, userYes, userNo, tokenProgram: TOKEN_PROGRAM_ID,
         })
         .preInstructions([ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })])
         .rpc();
-
-      setMsg("Claimed YES+NO residuals!");
+      toast.success("Claimed YES+NO residuals", {
+        action: { label: "Solscan ↗", onClick: () => window.open(solscanTxUrl(tx), "_blank") },
+      });
     } catch (err: any) {
       if (err.message?.includes("NoResidualsToClaim")) {
-        setMsg("No residuals to claim yet.");
+        toast.info("No residuals to claim yet.");
       } else {
-        setMsg(`Error: ${err.message?.slice(0, 80)}`);
+        toast.error("Claim failed", { description: err.message?.slice(0, 120) });
       }
     } finally {
       setLoading(false);
@@ -72,31 +57,14 @@ export function ResidualsWidget({ market }: { market: MarketData }) {
   };
 
   return (
-    <Card className="border-primary/30 bg-primary/5">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          LP Residuals (dC_t)
-          <span className="text-xs font-normal text-muted-foreground">
-            — tokens released as time passes
-          </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <p className="text-sm text-muted-foreground">
-          As the market approaches expiration, L_eff decreases and YES+NO tokens
-          are released to LPs proportionally to their shares.
-        </p>
-
-        <Button
-          onClick={handleClaim}
-          disabled={loading || !publicKey}
-          className="w-full"
-        >
-          {loading ? "Claiming..." : "Claim YES+NO Residuals"}
-        </Button>
-
-        {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
-      </CardContent>
-    </Card>
+    <div className="border border-line border-l-accent border-l-2 p-[16px] space-y-[12px]">
+      <div className="text-caption">LP RESIDUALS · dC_t</div>
+      <p className="text-[12px] text-text-dim leading-[1.5]">
+        As the market approaches expiry, YES+NO tokens are released to LPs.
+      </p>
+      <Button variant="secondary" className="w-full" onClick={handleClaim} disabled={loading || !publicKey}>
+        {loading ? "Claiming..." : "Claim Residuals"}
+      </Button>
+    </div>
   );
 }

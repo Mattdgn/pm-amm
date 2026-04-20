@@ -1,0 +1,50 @@
+/* pm/amm — sober design tokens */
+:root {
+  /* Neutral warm-charcoal scale — very restrained */
+  --bg:        oklch(0.145 0.004 60);
+  --surface:   oklch(0.175 0.005 60);
+  --surface-2: oklch(0.205 0.005 60);
+  --line:      oklch(0.245 0.005 60);
+  --line-2:    oklch(0.305 0.005 60);
+  --muted:     oklch(0.55 0.006 60);
+  --text-dim:  oklch(0.70 0.006 60);
+  --text:      oklch(0.92 0.008 70);
+  --text-hi:   oklch(0.98 0.006 80);
+
+  --yes:       oklch(0.70 0.09 150);
+  --yes-soft:  oklch(0.70 0.09 150 / 0.12);
+  --no:        oklch(0.66 0.11 30);
+  --no-soft:   oklch(0.66 0.11 30 / 0.12);
+  --accent:    oklch(0.78 0.08 75);
+
+  --font-sans: "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 10px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.005em;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.mono { font-family: var(--font-mono); font-feature-settings: "tnum", "zero"; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: var(--line-2); }
+
+::selection { background: var(--line-2); color: var(--text-hi); }

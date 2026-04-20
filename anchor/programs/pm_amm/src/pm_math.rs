@@ -452,9 +452,6 @@ pub fn compute_swap_output(
     side_in: SwapSide,
     side_out: SwapSide,
 ) -> Result<SwapResult> {
-    let p_clamp_lo = I80F48::lit("0.0001");
-    let p_clamp_hi = I80F48::lit("0.9999");
-
     let (output, x_new, y_new) = match (side_in, side_out) {
         (SwapSide::Usdc, SwapSide::Yes) => {
             let yn = y + delta_in;
@@ -467,17 +464,19 @@ pub fn compute_swap_output(
             (delta_in + (y - yn), xn, yn)
         }
         (SwapSide::Yes, SwapSide::Usdc) => {
-            let new_z = ((y - x) - delta_in) / l_eff;
-            let p_new_raw = capital_phi_fixed(new_z)?;
-            let p_new = p_new_raw.max(p_clamp_lo).min(p_clamp_hi);
-            let (xn, yn) = reserves_from_price(p_new, l_eff)?;
+            // new_z IS Phi_inv(P_new), use LUT directly — avoids expensive
+            // Phi(z) → Phi_inv(Phi(z)) round-trip that blows CU budget.
+            let z_clamp_lo = I80F48::lit("-5.9");
+            let z_clamp_hi = I80F48::lit("5.9");
+            let new_z = (((y - x) - delta_in) / l_eff).max(z_clamp_lo).min(z_clamp_hi);
+            let (xn, yn) = xy_from_u_fast(new_z, l_eff);
             (y - yn, xn, yn)
         }
         (SwapSide::No, SwapSide::Usdc) => {
-            let new_z = ((y - x) + delta_in) / l_eff;
-            let p_new_raw = capital_phi_fixed(new_z)?;
-            let p_new = p_new_raw.max(p_clamp_lo).min(p_clamp_hi);
-            let (xn, yn) = reserves_from_price(p_new, l_eff)?;
+            let z_clamp_lo = I80F48::lit("-5.9");
+            let z_clamp_hi = I80F48::lit("5.9");
+            let new_z = (((y - x) + delta_in) / l_eff).max(z_clamp_lo).min(z_clamp_hi);
+            let (xn, yn) = xy_from_u_fast(new_z, l_eff);
             (x - xn, xn, yn)
         }
         (SwapSide::Yes, SwapSide::No) => {
@@ -493,7 +492,9 @@ pub fn compute_swap_output(
         _ => return err!(PmAmmError::MathOverflow),
     };
 
-    let price_new = price_from_reserves(x_new, y_new, l_eff)?;
+    // Use LUT CDF for price — saves an expensive erf+exp call
+    let z_new = (y_new - x_new) / l_eff;
+    let price_new = lut::cdf_lut(z_new);
 
     Ok(SwapResult {
         output,
