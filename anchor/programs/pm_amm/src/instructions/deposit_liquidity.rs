@@ -50,7 +50,8 @@ pub fn handler(ctx: Context<DepositLiquidity>, amount: u64) -> Result<()> {
     let clock = Clock::get()?;
     let now = clock.unix_timestamp;
 
-    require!(amount > 0, PmAmmError::InvalidBudget);
+    // Minimum 1000 lamports (0.001 USDC) to avoid dust positions
+    require!(amount >= 1000, PmAmmError::InvalidBudget);
 
     // --- Phase 1: Mutations on market (scoped borrow) ---
     let new_shares: I80F48;
@@ -115,7 +116,8 @@ pub fn handler(ctx: Context<DepositLiquidity>, amount: u64) -> Result<()> {
 
     // --- Phase 3: Update LP position ---
     let lp = &mut ctx.accounts.lp_position;
-    if lp.owner == Pubkey::default() {
+    let is_new = lp.shares == 0 && lp.collateral_deposited == 0;
+    if is_new {
         // New position — no pending to claim
         lp.owner = ctx.accounts.signer.key();
         lp.market = ctx.accounts.market.key();
@@ -142,7 +144,7 @@ pub fn handler(ctx: Context<DepositLiquidity>, amount: u64) -> Result<()> {
     let cum_yes = ctx.accounts.market.cum_yes_per_share_fixed();
     let cum_no = ctx.accounts.market.cum_no_per_share_fixed();
 
-    if old_shares > I80F48::ZERO {
+    if !is_new {
         // Weighted checkpoint: preserve pending for old shares, zero for new
         let total = old_shares + new_shares;
         let old_cp_yes = I80F48::from_bits(lp.yes_per_share_checkpoint as i128);

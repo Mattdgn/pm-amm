@@ -210,6 +210,7 @@ describe("pm_amm", () => {
       .accounts({
         signer: authority,
         market: pdas.marketPda,
+        collateralMint,
         yesMint: pdas.yesMint,
         noMint: pdas.noMint,
         lpPosition: lpPda,

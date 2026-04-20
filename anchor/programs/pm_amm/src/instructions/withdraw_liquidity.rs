@@ -17,8 +17,11 @@ pub struct WithdrawLiquidity<'info> {
         mut,
         has_one = yes_mint,
         has_one = no_mint,
+        has_one = collateral_mint,
     )]
-    pub market: Account<'info, Market>,
+    pub market: Box<Account<'info, Market>>,
+
+    pub collateral_mint: Account<'info, Mint>,
 
     #[account(mut)]
     pub yes_mint: Account<'info, Mint>,
