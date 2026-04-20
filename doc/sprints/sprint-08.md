@@ -23,7 +23,7 @@ View function on-chain (pas mutative). Permet a un LP de savoir quel `L_0` propo
   warning_high_sigma: bool     // si sigma > 200% annuel (20000 bps)
   warning_short_duration: bool // si duration < 1 jour (86400s)
   ```
-- [ ] Wirer dans lib.rs
+- [ ] Wirer dans `anchor/programs/pm_amm/src/lib.rs`
 
 ### Composabilite
 - [ ] Exposer via IDL pour CPI par d'autres programmes

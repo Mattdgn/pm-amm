@@ -2,15 +2,13 @@
 
 ## Completed
 
-(aucun)
+- [x] Sprint 1 — Setup repo (2026-04-20)
 
 ## In Progress
 
 (aucun)
 
 ## Pending
-
-- [ ] Sprint 1 — Setup repo (1h)
 - [ ] Sprint 2 — Module math `pm_math.rs` (6h) ⚠️ CRITIQUE
 - [ ] Sprint 3 — Scaffold Anchor (3h)
 - [ ] Sprint 4 — Module `accrual.rs` (5h)
@@ -48,10 +46,22 @@ Sprint 1 ─┬─→ Sprint 2 ──┬─→ Sprint 4 ──→ Sprint 5 ─�
                                                                   Sprint 13
 ```
 
-## Metrics
+## Metrics — Sprint 1
+- Files changed: 27
+- Lines: +9592 / -96
+- Tests: 1 boilerplate
+- Type errors: 0
+- Lint warnings: 0 (Anchor macro warnings only)
 
-(rempli apres chaque sprint)
+## Retro — Sprint 1
+### Smooth
+- Anchor init + Next.js setup rapide
+### Friction
+- Platform-tools v1.51 (rustc 1.84) incompatible avec edition2024 — contourne avec v1.52
+- blake3/fixed crates pinnes pour compatibilite
+### Watch
+- Toujours passer `--tools-version v1.52` ou utiliser `pnpm build` depuis la racine
 
 ## Decisions
-
-(rempli au fur et a mesure)
+- Sprint 1: Monorepo split anchor/ + app/ pour lisibilite — CLAUDE.md mis a jour
+- Sprint 1: Platform-tools v1.52 requis (v1.51 incompatible edition2024)

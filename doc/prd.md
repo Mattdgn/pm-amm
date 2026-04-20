@@ -424,27 +424,29 @@ pub fn handler_swap(ctx: Context<Swap>, /* ... */) -> Result<()> {
 1. Structure monorepo :
    ```
    pm-amm/
-   ├── programs/pm_amm/src/
-   │   ├── instructions/
-   │   ├── pm_math.rs
-   │   ├── accrual.rs
-   │   ├── state.rs
-   │   ├── errors.rs
-   │   └── lib.rs
+   ├── anchor/
+   │   ├── programs/pm_amm/src/
+   │   │   ├── instructions/
+   │   │   ├── pm_math.rs
+   │   │   ├── accrual.rs
+   │   │   ├── state.rs
+   │   │   ├── errors.rs
+   │   │   └── lib.rs
+   │   ├── tests/
+   │   ├── scripts/
+   │   ├── Anchor.toml
+   │   └── Cargo.toml
    ├── app/                       # Next.js 14
-   ├── tests/
-   ├── scripts/
-   ├── Anchor.toml
    └── README.md
    ```
-2. `anchor init pm_amm --no-git`
+2. `cd anchor && anchor init pm_amm --no-git`
 3. Next.js 14 dans `app/` (TS, Tailwind, App Router)
 4. Deps :
    - Rust : `anchor-lang = "0.30"`, `anchor-spl = "0.30"`, `fixed = "1.27"`
    - TS : `@coral-xyz/anchor`, `@solana/web3.js`, `@solana/wallet-adapter-*`
-5. `.env.example`, `Anchor.toml` devnet + localnet
+5. `.env.example`, `anchor/Anchor.toml` devnet + localnet
 
-**DoD** : `anchor build` passe, `pnpm dev` démarre.
+**DoD** : `cd anchor && anchor build` passe (ou `pnpm build` from root), `pnpm dev` démarre.
 
 ---
 
@@ -523,7 +525,7 @@ pub fn handler_swap(ctx: Context<Swap>, /* ... */) -> Result<()> {
 
 **DoD** :
 
-- `cargo test --package pm_amm pm_math` vert
+- `cd anchor && cargo test --package pm_amm pm_math` vert
 - Tolérance tests 1e-7
 - Aucune panic, `unwrap` safe uniquement
 - Doc EN
@@ -583,7 +585,7 @@ pub fn handler_swap(ctx: Context<Swap>, /* ... */) -> Result<()> {
    - Logic : init mints (decimals 6), vault token account, set `last_accrual_ts = start_ts`, cumulés à 0
    - Check : `end_ts > start_ts + 3600` (au moins 1h de durée)
 
-**DoD** : `anchor build` + test TS init → vérifie state post-création.
+**DoD** : `cd anchor && anchor build` (ou `pnpm build` from root) + test TS init → vérifie state post-création.
 
 ---
 
@@ -615,7 +617,7 @@ pub fn handler_swap(ctx: Context<Swap>, /* ... */) -> Result<()> {
    - LP avec checkpoint à jour → pending = (0, 0)
    - LP avec checkpoint en retard → pending cohérent
 
-4. **Doc** : `accrual.md` dans `programs/pm_amm/src/` avec les formules et le rationale de la discrétisation.
+4. **Doc** : `accrual.md` dans `anchor/programs/pm_amm/src/` avec les formules et le rationale de la discrétisation.
 
 **DoD** :
 
@@ -824,14 +826,14 @@ fn accrue_first(market: &mut Market) -> Result<()> {
 
 **Tâches** :
 
-1. **Tests fonctionnels** (`tests/functional.ts`) :
+1. **Tests fonctionnels** (`anchor/tests/functional.ts`) :
    - Happy path complet
    - Stress : 100 swaps random, invariant OK après chaque
    - Scale : 0.01 USDC → 10k USDC même pool
    - Near-expiry : warp à end_ts - 1h
    - Edge cases : all revert cases
 
-2. **Tests propriétés Paradigm** (`tests/paradigm_properties.ts`) :
+2. **Tests propriétés Paradigm** (`anchor/tests/paradigm_properties.ts`) :
 
    **Test A — Uniform LVR en prix** :
 
@@ -863,7 +865,7 @@ fn accrue_first(market: &mut Market) -> Result<()> {
      E[W_T] = E[sum(résiduels) + V_T] doit ≈ W_0/2 (tolérance 5%)
    ```
 
-3. **Tests robustesse hors-modèle** (`tests/robustness.ts`) :
+3. **Tests robustesse hors-modèle** (`anchor/tests/robustness.ts`) :
 
    **Test D — Jump déterministe** :
 
@@ -904,10 +906,10 @@ fn accrue_first(market: &mut Market) -> Result<()> {
 
 **Tâches** :
 
-1. `scripts/deploy-devnet.ts`
-2. `scripts/seed-devnet.ts` : 2 markets démo
-3. `scripts/simulate-life.ts` : simule 7 jours compressés (warps + trades + accruals)
-4. `scripts/airdrop.ts`
+1. `anchor/scripts/deploy-devnet.ts`
+2. `anchor/scripts/seed-devnet.ts` : 2 markets démo
+3. `anchor/scripts/simulate-life.ts` : simule 7 jours compressés (warps + trades + accruals)
+4. `anchor/scripts/airdrop.ts`
 
 **DoD** : programme déployé, markets seed visibles.
 

@@ -13,38 +13,36 @@ Deadline : 26 avril 2026.
 
 ## Commands
 ```bash
-# Rust / Anchor
-anchor build --no-idl -- --tools-version v1.52  # Build programme (platform-tools v1.52)
-anchor idl build -o target/idl/pm_amm.json      # Build IDL (separement)
-anchor test                                      # Tests integration (localnet)
-cargo test --package pm_amm                      # Tests unitaires Rust
-cargo test --package pm_amm pm_math              # Tests math uniquement
+# Depuis la racine (aliases)
+pnpm build          # Build programme + IDL
+pnpm test           # Tests integration (localnet)
+pnpm test:rust      # Tests unitaires Rust
+pnpm dev            # Frontend dev server
+pnpm deploy         # Deploy devnet
 
-# Frontend
-cd app && pnpm install                # Install deps
-cd app && pnpm dev                    # Dev server
-cd app && pnpm build                  # Build prod
-
-# Deploy
-anchor deploy --provider.cluster devnet
+# Depuis anchor/ (direct)
+cd anchor && anchor build --no-idl -- --tools-version v1.52
+cd anchor && cargo test --package pm_amm
+cd anchor && cargo test --package pm_amm pm_math
 ```
 
 ## Architecture
 Voir `doc/prd.md` section 2 pour architecture complete.
 
-Structure cible :
 ```
 pm-amm/
-  programs/pm_amm/src/
-    instructions/    # 10 instructions Anchor
-    pm_math.rs       # Fixed-point math (Phi, Phi_inv, reserves, swap)
-    accrual.rs       # Mecanisme dC_t redistribution YES+NO
-    state.rs         # Market, Position, LpPosition
-    errors.rs
-    lib.rs
-  app/               # Next.js (latest)
-  tests/             # Tests TS integration
-  scripts/           # Deploy, seed, simulate
+  anchor/                # Workspace Anchor
+    programs/pm_amm/src/
+      instructions/      # 10 instructions Anchor
+      pm_math.rs         # Fixed-point math (Phi, Phi_inv, reserves, swap)
+      accrual.rs         # Mecanisme dC_t redistribution YES+NO
+      state.rs           # Market, Position, LpPosition
+      errors.rs
+      lib.rs
+    tests/               # Tests TS integration
+    scripts/             # Deploy, seed, simulate
+  app/                   # Next.js frontend
+  doc/                   # PRD, sprints, paper
 ```
 
 ## Paper de reference

@@ -47,12 +47,12 @@ Structs on-chain v3. Un seul vault USDC. Fields `cum_yes_per_share` et `cum_no_p
 - [ ] Args : `market_id: u64`, `end_ts: i64`
 - [ ] Logic : init mints decimals 6, vault token account, `last_accrual_ts = Clock::get().unix_timestamp`, cumules a 0
 - [ ] Check : `end_ts > start_ts + 3600` (au moins 1h)
-- [ ] Wirer dans `lib.rs`
+- [ ] Wirer dans `anchor/programs/pm_amm/src/lib.rs`
 
 ### Test TS
-- [ ] Ecrire test TS `initialize_market` : creer un market, verifier state post-creation (all fields)
+- [ ] Ecrire test TS dans `anchor/tests/` : `initialize_market` — creer un market, verifier state post-creation (all fields)
 
 ## Definition of Done
-- `anchor build` passe
+- `cd anchor && anchor build` passe (ou `pnpm build` from root)
 - Test TS init_market vert
 - State post-creation conforme au PRD section 2.2

@@ -56,7 +56,7 @@ IMPORTANT : sigma n'apparait PAS dans la dynamique du prix (section 5 du paper).
 - [ ] Logger bench CU pour chaque fonction critique
 
 ## Definition of Done
-- `cargo test --package pm_amm pm_math` vert
+- `cd anchor && cargo test --package pm_amm pm_math` vert
 - Tolerance tests 1e-7
 - Aucune panic, `unwrap` safe uniquement
 - CU documente en commentaire
