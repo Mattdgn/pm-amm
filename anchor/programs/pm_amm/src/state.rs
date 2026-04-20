@@ -190,3 +190,91 @@ impl LpPosition {
     pub const SEED: &'static [u8] = b"lp";
     pub const LEN: usize = 8 + 32 + 32 + 16 + 8 + 16 + 16 + 1 + 16;
 }
+
+// ============================================================================
+// Tests
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_q64_roundtrip() {
+        let mut market = Market {
+            authority: Pubkey::default(),
+            market_id: 0,
+            collateral_mint: Pubkey::default(),
+            yes_mint: Pubkey::default(),
+            no_mint: Pubkey::default(),
+            vault: Pubkey::default(),
+            start_ts: 0,
+            end_ts: 0,
+            l_zero: 0,
+            reserve_yes: 0,
+            reserve_no: 0,
+            last_accrual_ts: 0,
+            cum_yes_per_share: 0,
+            cum_no_per_share: 0,
+            total_yes_distributed: 0,
+            total_no_distributed: 0,
+            total_lp_shares: 0,
+            resolved: false,
+            winning_side: 0,
+            bump: 0,
+        };
+
+        // Test various values round-trip through u128 storage
+        for val in [0.0, 1.0, 398.942, 1000.0, 0.001, 123456.789] {
+            let fixed_val = I80F48::from_num(val);
+            market.set_l_zero_fixed(fixed_val);
+            let got = market.l_zero_fixed();
+            assert_eq!(got, fixed_val, "Q64.64 roundtrip failed for {val}");
+        }
+
+        // Test reserves
+        let x = I80F48::from_num(1328.895);
+        let y = I80F48::from_num(47.343);
+        market.set_reserve_yes_fixed(x);
+        market.set_reserve_no_fixed(y);
+        assert_eq!(market.reserve_yes_fixed(), x);
+        assert_eq!(market.reserve_no_fixed(), y);
+
+        // Test cum_per_share
+        let c = I80F48::from_num(0.000001);
+        market.set_cum_yes_per_share_fixed(c);
+        assert_eq!(market.cum_yes_per_share_fixed(), c);
+    }
+
+    #[test]
+    fn test_winning_side() {
+        let mut market = Market {
+            authority: Pubkey::default(),
+            market_id: 0,
+            collateral_mint: Pubkey::default(),
+            yes_mint: Pubkey::default(),
+            no_mint: Pubkey::default(),
+            vault: Pubkey::default(),
+            start_ts: 0,
+            end_ts: 0,
+            l_zero: 0,
+            reserve_yes: 0,
+            reserve_no: 0,
+            last_accrual_ts: 0,
+            cum_yes_per_share: 0,
+            cum_no_per_share: 0,
+            total_yes_distributed: 0,
+            total_no_distributed: 0,
+            total_lp_shares: 0,
+            resolved: false,
+            winning_side: 0,
+            bump: 0,
+        };
+
+        assert_eq!(market.get_winning_side(), None);
+        market.set_winning_side(Side::Yes);
+        assert_eq!(market.get_winning_side(), Some(Side::Yes));
+        market.set_winning_side(Side::No);
+        assert_eq!(market.get_winning_side(), Some(Side::No));
+    }
+}
