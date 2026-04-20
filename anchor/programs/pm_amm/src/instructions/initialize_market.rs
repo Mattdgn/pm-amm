@@ -1,11 +1,16 @@
 //! Initialize a new prediction market.
-//! Creates Market PDA, YES/NO mints (decimals 6), and USDC vault.
+//! Creates Market PDA, YES/NO mint PDAs, and vault PDA.
+//! All derived deterministically — no random keypairs needed.
 
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
 use crate::errors::PmAmmError;
 use crate::state::Market;
+
+pub const YES_MINT_SEED: &[u8] = b"yes_mint";
+pub const NO_MINT_SEED: &[u8] = b"no_mint";
+pub const VAULT_SEED: &[u8] = b"vault";
 
 #[derive(Accounts)]
 #[instruction(market_id: u64)]
@@ -31,6 +36,8 @@ pub struct InitializeMarket<'info> {
         payer = authority,
         mint::decimals = 6,
         mint::authority = market,
+        seeds = [YES_MINT_SEED, market.key().as_ref()],
+        bump,
     )]
     pub yes_mint: Account<'info, Mint>,
 
@@ -39,6 +46,8 @@ pub struct InitializeMarket<'info> {
         payer = authority,
         mint::decimals = 6,
         mint::authority = market,
+        seeds = [NO_MINT_SEED, market.key().as_ref()],
+        bump,
     )]
     pub no_mint: Account<'info, Mint>,
 
@@ -47,6 +56,8 @@ pub struct InitializeMarket<'info> {
         payer = authority,
         token::mint = collateral_mint,
         token::authority = market,
+        seeds = [VAULT_SEED, market.key().as_ref()],
+        bump,
     )]
     pub vault: Account<'info, TokenAccount>,
 
@@ -103,13 +114,6 @@ pub fn handler(
     market.winning_side = 0; // unresolved
 
     market.bump = ctx.bumps.market;
-
-    msg!(
-        "Market {} initialized: end_ts={}, authority={}",
-        market_id,
-        end_ts,
-        market.authority
-    );
 
     Ok(())
 }
