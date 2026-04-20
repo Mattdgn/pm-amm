@@ -9,13 +9,13 @@
 - [x] Sprint 5 — Core instructions deposit/swap/withdraw (2026-04-20)
 - [x] Sprint 6 — LP residuals flow (2026-04-20)
 - [x] Sprint 7 — Resolve + claim winnings (2026-04-20)
+- [x] Sprint 8 — Instruction `suggest_l_zero` (2026-04-20)
 
 ## In Progress
 
 (aucun)
 
 ## Pending
-- [ ] Sprint 8 — Instruction `suggest_l_zero` (2h)
 - [ ] Sprint 9 — Tests complets proprietes + robustesse (7h)
 - [ ] Sprint 10 — Devnet deploy + seed (2h)
 - [ ] Sprint 11 — Front Next.js scaffold (4h)
