@@ -11,13 +11,13 @@
 - [x] Sprint 7 — Resolve + claim winnings (2026-04-20)
 - [x] Sprint 8 — Instruction `suggest_l_zero` (2026-04-20)
 - [x] Sprint 9 — Tests complets proprietes + robustesse (2026-04-20)
+- [x] Sprint 10 — Devnet deploy + seed (2026-04-20)
 
 ## In Progress
 
 (aucun)
 
 ## Pending
-- [ ] Sprint 10 — Devnet deploy + seed (2h)
 - [ ] Sprint 11 — Front Next.js scaffold (4h)
 - [ ] Sprint 12 — UI trade + LP + residuels (7h)
 - [ ] Sprint 13 — Polish + README + demo (6h)
