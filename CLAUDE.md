@@ -14,10 +14,11 @@ Deadline : 26 avril 2026.
 ## Commands
 ```bash
 # Rust / Anchor
-anchor build                          # Build programme
-anchor test                           # Tests integration (localnet)
-cargo test --package pm_amm           # Tests unitaires Rust
-cargo test --package pm_amm pm_math   # Tests math uniquement
+anchor build --no-idl -- --tools-version v1.52  # Build programme (platform-tools v1.52)
+anchor idl build -o target/idl/pm_amm.json      # Build IDL (separement)
+anchor test                                      # Tests integration (localnet)
+cargo test --package pm_amm                      # Tests unitaires Rust
+cargo test --package pm_amm pm_math              # Tests math uniquement
 
 # Frontend
 cd app && pnpm install                # Install deps

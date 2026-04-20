@@ -1,11 +1,16 @@
 [toolchain]
 package_manager = "pnpm"
+anchor_version = "0.31.1"
+solana_version = "3.0.14"
 
 [features]
 resolution = true
 skip-lint = false
 
 [programs.localnet]
+pm_amm = "GQGSTV9dig5fEwcfMpgqHjo9jAhxtnusMEbx8SrBBYnQ"
+
+[programs.devnet]
 pm_amm = "GQGSTV9dig5fEwcfMpgqHjo9jAhxtnusMEbx8SrBBYnQ"
 
 [registry]

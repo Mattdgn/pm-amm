@@ -4,6 +4,10 @@ members = [
 ]
 resolver = "2"
 
+# Pin transitive deps that require edition2024 (Solana platform-tools v1.51 = rustc 1.84)
+[workspace.dependencies]
+block-buffer = ">=0.10, <0.12"
+
 [profile.release]
 overflow-checks = true
 lto = "fat"
