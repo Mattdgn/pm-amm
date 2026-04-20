@@ -1,6 +1,7 @@
 pub mod accrual;
 pub mod errors;
 pub mod instructions;
+pub mod lut;
 pub mod pm_math;
 pub mod state;
 
@@ -21,5 +22,28 @@ pub mod pm_amm {
         end_ts: i64,
     ) -> Result<()> {
         instructions::initialize_market::handler(ctx, market_id, end_ts)
+    }
+
+    pub fn deposit_liquidity(
+        ctx: Context<DepositLiquidity>,
+        amount: u64,
+    ) -> Result<()> {
+        instructions::deposit_liquidity::handler(ctx, amount)
+    }
+
+    pub fn swap(
+        ctx: Context<Swap>,
+        direction: SwapDirection,
+        amount_in: u64,
+        min_output: u64,
+    ) -> Result<()> {
+        instructions::swap::handler(ctx, direction, amount_in, min_output)
+    }
+
+    pub fn withdraw_liquidity(
+        ctx: Context<WithdrawLiquidity>,
+        shares_to_burn: u128,
+    ) -> Result<()> {
+        instructions::withdraw_liquidity::handler(ctx, shares_to_burn)
     }
 }
