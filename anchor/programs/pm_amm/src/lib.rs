@@ -59,6 +59,14 @@ pub mod pm_amm {
         instructions::redeem_pair::handler(ctx, amount)
     }
 
+    pub fn suggest_l_zero(
+        ctx: Context<SuggestLZero>,
+        budget_usdc: u64,
+        sigma_bps: u64,
+    ) -> Result<()> {
+        instructions::suggest_l_zero::handler(ctx, budget_usdc, sigma_bps)
+    }
+
     pub fn resolve_market(ctx: Context<ResolveMarket>, winning_side: Side) -> Result<()> {
         instructions::resolve_market::handler(ctx, winning_side)
     }

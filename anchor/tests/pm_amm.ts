@@ -90,9 +90,49 @@ describe("pm_amm", () => {
     assert.ok(market.authority.equals(authority));
     assert.equal(market.resolved, false);
 
-    // Create user YES/NO token accounts
+    // Create user YES/NO token accounts (after init so mints exist)
     userYes = await createAccount(provider.connection, payer, pdas.yesMint, authority);
     userNo = await createAccount(provider.connection, payer, pdas.noMint, authority);
+  });
+
+  // ================================================================
+  // Sprint 8: suggest_l_zero
+  // ================================================================
+  it("suggest_l_zero — budget 1000, 7 days", async () => {
+    // Call suggest_l_zero and check the event
+    const listener = program.addEventListener("lZeroSuggestion", (event: any) => {
+      assert.ok(event.market.equals(pdas.marketPda), "event market");
+      assert.ok(event.suggestedLZero.gt(new anchor.BN(0)), "L_0 > 0");
+      assert.equal(event.estimatedPoolValue.toNumber(), 1_000_000_000, "pool_value = budget");
+      // daily LVR = 1000 / (2 * 7) ≈ 71.43 USDC = 71_428_571 lamports
+      const dailyLvr = event.estimatedDailyLvr.toNumber();
+      assert.ok(dailyLvr > 60_000_000 && dailyLvr < 80_000_000, `daily LVR ${dailyLvr}`);
+      assert.equal(event.warningHighSigma, false, "sigma 50% < 200%");
+      assert.equal(event.warningShortDuration, false, "7 days > 1 day");
+    });
+
+    await program.methods
+      .suggestLZero(new anchor.BN(1_000_000_000), new anchor.BN(5000)) // 1000 USDC, 50% sigma
+      .accounts({ market: pdas.marketPda })
+      .preInstructions([ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })])
+      .rpc();
+
+    // Cleanup listener
+    await program.removeEventListener(listener);
+  });
+
+  it("suggest_l_zero — high sigma warning", async () => {
+    const listener = program.addEventListener("lZeroSuggestion", (event: any) => {
+      assert.equal(event.warningHighSigma, true, "sigma 300% > 200%");
+    });
+
+    await program.methods
+      .suggestLZero(new anchor.BN(1_000_000_000), new anchor.BN(30000)) // 300% sigma
+      .accounts({ market: pdas.marketPda })
+      .preInstructions([ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })])
+      .rpc();
+
+    await program.removeEventListener(listener);
   });
 
   // ================================================================
