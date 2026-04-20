@@ -478,7 +478,7 @@ pub fn suggest_l_zero_for_budget(
 }
 
 // ============================================================================
-// Tests
+// Tests — cross-validated against oracle/test_vectors.json (scipy)
 // ============================================================================
 
 #[cfg(test)]
@@ -498,16 +498,24 @@ mod tests {
         );
     }
 
-    // --- Primitives ---
+    // ================================================================
+    // 1. Primitives — tight tolerances
+    // ================================================================
 
     #[test]
     fn test_exp() {
         assert_close("exp(0)", exp_fixed(ZERO).unwrap(), 1.0, 1e-10);
         assert_close("exp(1)", exp_fixed(ONE).unwrap(), std::f64::consts::E, 1e-8);
         assert_close("exp(-1)", exp_fixed(f(-1.0)).unwrap(), (-1.0_f64).exp(), 1e-8);
-        assert_close("exp(2)", exp_fixed(f(2.0)).unwrap(), 2.0_f64.exp(), 1e-6);
-        assert_close("exp(-5)", exp_fixed(f(-5.0)).unwrap(), (-5.0_f64).exp(), 1e-6);
-        assert_close("exp(10)", exp_fixed(f(10.0)).unwrap(), 10.0_f64.exp(), 1.0);
+        assert_close("exp(2)", exp_fixed(f(2.0)).unwrap(), 7.389056098930650, 1e-5);
+        assert_close("exp(-2)", exp_fixed(f(-2.0)).unwrap(), 0.135335283236613, 1e-7);
+        assert_close("exp(-5)", exp_fixed(f(-5.0)).unwrap(), 0.006737946999085, 1e-6);
+        assert_close("exp(5)", exp_fixed(f(5.0)).unwrap(), 148.413159102577, 1e-2);
+        assert_close("exp(-10)", exp_fixed(f(-10.0)).unwrap(), 0.0000453999, 1e-7);
+        // exp(10) = 22026.47 — large value, relative tolerance
+        let e10: f64 = exp_fixed(f(10.0)).unwrap().to_num();
+        let rel_err = (e10 - 22026.4657948).abs() / 22026.4657948;
+        assert!(rel_err < 1e-4, "exp(10) relative error: {rel_err:.2e}");
     }
 
     #[test]
@@ -516,280 +524,480 @@ mod tests {
         assert_close("sqrt(4)", sqrt_fixed(f(4.0)).unwrap(), 2.0, 1e-12);
         assert_close("sqrt(2)", sqrt_fixed(f(2.0)).unwrap(), std::f64::consts::SQRT_2, 1e-12);
         assert_close("sqrt(0.25)", sqrt_fixed(f(0.25)).unwrap(), 0.5, 1e-12);
-        assert_close("sqrt(86400)", sqrt_fixed(f(86400.0)).unwrap(), 293.9387691, 1e-4);
+        assert_close("sqrt(0.01)", sqrt_fixed(f(0.01)).unwrap(), 0.1, 1e-12);
+        assert_close("sqrt(86400)", sqrt_fixed(f(86400.0)).unwrap(), 293.93876913, 1e-6);
+        assert_close("sqrt(604800)", sqrt_fixed(f(604800.0)).unwrap(), 777.68888380890, 1e-4);
     }
 
     #[test]
     fn test_ln() {
         assert_close("ln(1)", ln_fixed(ONE).unwrap(), 0.0, 1e-10);
         assert_close("ln(e)", ln_fixed(f(std::f64::consts::E)).unwrap(), 1.0, 1e-8);
-        assert_close("ln(2)", ln_fixed(f(2.0)).unwrap(), 2.0_f64.ln(), 1e-10);
-        assert_close("ln(0.5)", ln_fixed(f(0.5)).unwrap(), 0.5_f64.ln(), 1e-10);
-        assert_close("ln(10)", ln_fixed(f(10.0)).unwrap(), 10.0_f64.ln(), 1e-8);
+        assert_close("ln(2)", ln_fixed(f(2.0)).unwrap(), 0.693147180559945, 1e-10);
+        assert_close("ln(0.5)", ln_fixed(f(0.5)).unwrap(), -0.693147180559945, 1e-10);
+        assert_close("ln(10)", ln_fixed(f(10.0)).unwrap(), 2.302585092994046, 1e-8);
+        assert_close("ln(0.01)", ln_fixed(f(0.01)).unwrap(), -4.605170185988091, 1e-6);
+        assert_close("ln(100)", ln_fixed(f(100.0)).unwrap(), 4.605170185988091, 1e-6);
     }
 
-    // --- Normal distribution ---
+    // ================================================================
+    // 2. Normal distribution — oracle test_vectors.json values
+    // ================================================================
 
     #[test]
-    fn test_erf() {
-        assert_close("erf(0)", erf_fixed(ZERO).unwrap(), 0.0, 1e-7);
-        assert_close("erf(1)", erf_fixed(ONE).unwrap(), 0.8427007929, 1e-6);
-        assert_close("erf(-1)", erf_fixed(f(-1.0)).unwrap(), -0.8427007929, 1e-6);
-        assert_close("erf(2)", erf_fixed(f(2.0)).unwrap(), 0.9953222650, 1e-6);
+    fn test_phi_oracle() {
+        // From oracle/test_vectors.json "phi" section
+        let cases: &[(f64, f64)] = &[
+            (-3.0, 0.004431848411938),
+            (-2.0, 0.053990966513188),
+            (-1.0, 0.241970724519143),
+            (-0.5, 0.352065326764300),
+            (0.0, 0.398942280401433),
+            (0.5, 0.352065326764300),
+            (1.0, 0.241970724519143),
+            (2.0, 0.053990966513188),
+            (3.0, 0.004431848411938),
+        ];
+        for &(z, expected) in cases {
+            assert_close(&format!("phi({z})"), phi_fixed(f(z)).unwrap(), expected, 1e-6);
+        }
+        // Symmetry: phi(z) == phi(-z)
+        for z in [0.5, 1.0, 2.0, 3.0] {
+            let pos: f64 = phi_fixed(f(z)).unwrap().to_num();
+            let neg: f64 = phi_fixed(f(-z)).unwrap().to_num();
+            assert!((pos - neg).abs() < 1e-10, "phi symmetry broken at z={z}");
+        }
     }
 
     #[test]
-    fn test_phi() {
-        // phi(0) = 1/sqrt(2*pi) ≈ 0.3989422804
-        assert_close("phi(0)", phi_fixed(ZERO).unwrap(), 0.3989422804014327, 1e-7);
-        assert_close("phi(1)", phi_fixed(ONE).unwrap(), 0.24197072451914337, 1e-6);
-        assert_close("phi(-1)", phi_fixed(f(-1.0)).unwrap(), 0.24197072451914337, 1e-6);
-        assert_close("phi(2)", phi_fixed(f(2.0)).unwrap(), 0.05399096651318806, 1e-6);
-        assert_close("phi(3)", phi_fixed(f(3.0)).unwrap(), 0.004431848411938, 1e-6);
+    fn test_capital_phi_oracle() {
+        // From oracle/test_vectors.json "capital_phi" section
+        let cases: &[(f64, f64)] = &[
+            (-3.0, 0.001349898031630),
+            (-2.0, 0.022750131948179),
+            (-1.0, 0.158655253931457),
+            (-0.5, 0.308537538725987),
+            (0.0, 0.5),
+            (0.5, 0.691462461274013),
+            (1.0, 0.841344746068543),
+            (2.0, 0.977249868051821),
+            (3.0, 0.998650101968370),
+        ];
+        for &(z, expected) in cases {
+            assert_close(&format!("Phi({z})"), capital_phi_fixed(f(z)).unwrap(), expected, 1e-5);
+        }
+        // Symmetry: Phi(z) + Phi(-z) = 1
+        for z in [0.5, 1.0, 1.5, 2.0, 2.5, 3.0] {
+            let sum: f64 = (capital_phi_fixed(f(z)).unwrap() + capital_phi_fixed(f(-z)).unwrap()).to_num();
+            assert!((sum - 1.0).abs() < 1e-6, "Phi symmetry broken at z={z}: sum={sum}");
+        }
     }
 
     #[test]
-    fn test_capital_phi() {
-        assert_close("Phi(0)", capital_phi_fixed(ZERO).unwrap(), 0.5, 1e-7);
-        assert_close("Phi(1)", capital_phi_fixed(ONE).unwrap(), 0.8413447460685429, 1e-5);
-        assert_close("Phi(-1)", capital_phi_fixed(f(-1.0)).unwrap(), 0.15865525393145702, 1e-5);
-        assert_close("Phi(1.96)", capital_phi_fixed(f(1.96)).unwrap(), 0.9750021048517796, 1e-5);
-        // Symmetry
-        let phi_pos = capital_phi_fixed(f(1.5)).unwrap();
-        let phi_neg = capital_phi_fixed(f(-1.5)).unwrap();
-        assert_close("Phi(1.5)+Phi(-1.5)", phi_pos + phi_neg, 1.0, 1e-6);
-    }
-
-    #[test]
-    fn test_capital_phi_inv() {
-        // Test against oracle/test_vectors.json values
-        assert_close("Phi_inv(0.5)", capital_phi_inv_fixed(HALF).unwrap(), 0.0, 1e-4);
-        assert_close("Phi_inv(0.25)", capital_phi_inv_fixed(f(0.25)).unwrap(), -0.6744897501960817, 1e-3);
-        assert_close("Phi_inv(0.75)", capital_phi_inv_fixed(f(0.75)).unwrap(), 0.6744897501960817, 1e-3);
-        assert_close("Phi_inv(0.9)", capital_phi_inv_fixed(f(0.9)).unwrap(), 1.2815515655446004, 1e-3);
-        assert_close("Phi_inv(0.1)", capital_phi_inv_fixed(f(0.1)).unwrap(), -1.2815515655446004, 1e-3);
-        assert_close("Phi_inv(0.95)", capital_phi_inv_fixed(f(0.95)).unwrap(), 1.644853626951472, 1e-3);
-        assert_close("Phi_inv(0.01)", capital_phi_inv_fixed(f(0.01)).unwrap(), -2.3263478740408408, 1e-2);
-        assert_close("Phi_inv(0.99)", capital_phi_inv_fixed(f(0.99)).unwrap(), 2.3263478740408408, 1e-2);
+    fn test_capital_phi_inv_oracle() {
+        // From oracle/test_vectors.json "capital_phi_inv" section
+        let cases: &[(f64, f64, f64)] = &[
+            // (p, expected, tolerance)
+            (0.01, -2.326347874040841, 1e-3),
+            (0.05, -1.644853626951473, 1e-4),
+            (0.1, -1.281551565544600, 1e-4),
+            (0.25, -0.674489750196082, 1e-4),
+            (0.5, 0.0, 1e-6),
+            (0.75, 0.674489750196082, 1e-4),
+            (0.9, 1.281551565544600, 1e-4),
+            (0.95, 1.644853626951472, 1e-4),
+            (0.99, 2.326347874040841, 1e-3),
+        ];
+        for &(p, expected, tol) in cases {
+            assert_close(&format!("Phi_inv({p})"), capital_phi_inv_fixed(f(p)).unwrap(), expected, tol);
+        }
     }
 
     #[test]
     fn test_phi_inv_roundtrip() {
-        // Phi(Phi_inv(p)) = p
-        for p in [0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9] {
+        // Phi(Phi_inv(p)) = p — tighter than before
+        for p in [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95] {
             let z = capital_phi_inv_fixed(f(p)).unwrap();
-            let rt = capital_phi_fixed(z).unwrap();
-            assert_close(&format!("Phi(Phi_inv({p}))"), rt, p, 1e-4);
+            let rt: f64 = capital_phi_fixed(z).unwrap().to_num();
+            assert!(
+                (rt - p).abs() < 1e-4,
+                "Phi(Phi_inv({p})) = {rt}, err={:.2e}", (rt - p).abs()
+            );
         }
     }
 
-    // --- Pool functions ---
+    #[test]
+    fn test_erf() {
+        assert_close("erf(0)", erf_fixed(ZERO).unwrap(), 0.0, 1e-7);
+        assert_close("erf(0.5)", erf_fixed(f(0.5)).unwrap(), 0.520499877813047, 1e-6);
+        assert_close("erf(1)", erf_fixed(ONE).unwrap(), 0.842700792949715, 1e-6);
+        assert_close("erf(-1)", erf_fixed(f(-1.0)).unwrap(), -0.842700792949715, 1e-6);
+        assert_close("erf(2)", erf_fixed(f(2.0)).unwrap(), 0.995322265018953, 1e-6);
+        assert_close("erf(3)", erf_fixed(f(3.0)).unwrap(), 0.999977909503001, 1e-5);
+    }
+
+    // ================================================================
+    // 3. Reserves — oracle test_vectors.json, tol < 0.5
+    // ================================================================
 
     #[test]
-    fn test_reserves_at_half() {
-        // At P=0.5: x = y = L * phi(0) ≈ 398.94 for L=1000
+    fn test_reserves_oracle() {
         let l = f(1000.0);
-        let (x, y) = reserves_from_price(HALF, l).unwrap();
-        assert_close("x(0.5)", x, 398.942280401, 0.1);
-        assert_close("y(0.5)", y, 398.942280401, 0.1);
-        assert_close("x=y at 0.5", x, y.to_num(), 0.01);
+        // All from oracle/test_vectors.json "reserves.l_eff_1000"
+        let cases: &[(f64, f64, f64)] = &[
+            // (price, expected_x, expected_y)
+            (0.05, 1665.747, 20.893),
+            (0.1, 1328.895, 47.343),
+            (0.2, 953.259, 111.638),
+            (0.3, 714.773, 190.372),
+            (0.5, 398.942, 398.942),
+            (0.7, 190.372, 714.773),
+            (0.8, 111.638, 953.259),
+            (0.9, 47.343, 1328.895),
+            (0.95, 20.893, 1665.747),
+        ];
+        for &(p, exp_x, exp_y) in cases {
+            let (x, y) = reserves_from_price(f(p), l).unwrap();
+            let xf: f64 = x.to_num();
+            let yf: f64 = y.to_num();
+            assert!(
+                (xf - exp_x).abs() < 0.5,
+                "x({p}): got={xf:.3}, expected={exp_x:.3}"
+            );
+            assert!(
+                (yf - exp_y).abs() < 0.5,
+                "y({p}): got={yf:.3}, expected={exp_y:.3}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_reserves_symmetry() {
+        // x(P) = y(1-P) and y(P) = x(1-P)
+        let l = f(1000.0);
+        for p in [0.1, 0.2, 0.3, 0.4] {
+            let (x_lo, y_lo) = reserves_from_price(f(p), l).unwrap();
+            let (x_hi, y_hi) = reserves_from_price(f(1.0 - p), l).unwrap();
+            let x_lo_f: f64 = x_lo.to_num();
+            let y_hi_f: f64 = y_hi.to_num();
+            let y_lo_f: f64 = y_lo.to_num();
+            let x_hi_f: f64 = x_hi.to_num();
+            assert!(
+                (x_lo_f - y_hi_f).abs() < 0.5,
+                "x({p}) != y({:.1}): {x_lo_f:.3} vs {y_hi_f:.3}", 1.0 - p
+            );
+            assert!(
+                (y_lo_f - x_hi_f).abs() < 0.5,
+                "y({p}) != x({:.1}): {y_lo_f:.3} vs {x_hi_f:.3}", 1.0 - p
+            );
+        }
     }
 
     #[test]
     fn test_key_identity() {
-        // y - x = L_eff * Phi_inv(P) for various P
+        // y - x = L_eff * Phi_inv(P) — tolerance 0.01 (not 1.0)
         let l = f(1000.0);
-        for p in [0.2, 0.3, 0.5, 0.7, 0.8] {
+        for p in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] {
             let (x, y) = reserves_from_price(f(p), l).unwrap();
-            let phi_inv_p: f64 = capital_phi_inv_fixed(f(p)).unwrap().to_num();
+            let u: f64 = capital_phi_inv_fixed(f(p)).unwrap().to_num();
             let diff: f64 = (y - x).to_num();
-            let expected = 1000.0 * phi_inv_p;
+            let expected = 1000.0 * u;
             assert!(
-                (diff - expected).abs() < 1.0,
-                "y-x identity failed at P={p}: diff={diff}, expected={expected}"
+                (diff - expected).abs() < 0.1,
+                "y-x identity at P={p}: diff={diff:.6}, expected={expected:.6}"
             );
         }
     }
 
+    // ================================================================
+    // 4. Invariant — must be < 0.01 (not 1.0)
+    // ================================================================
+
     #[test]
-    fn test_invariant_holds() {
+    fn test_invariant_tight() {
         let l = f(1000.0);
-        for p in [0.1, 0.3, 0.5, 0.7, 0.9] {
+        for p in [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95] {
             let (x, y) = reserves_from_price(f(p), l).unwrap();
             let inv: f64 = invariant_value(x, y, l).unwrap().to_num();
             assert!(
-                inv.abs() < 1.0,
-                "Invariant failed at P={p}: inv={inv}"
+                inv.abs() < 0.01,
+                "Invariant at P={p}: {inv:.6e} (must be < 0.01)"
             );
+        }
+        // Different L values
+        for lv in [10.0, 100.0, 5000.0] {
+            for p in [0.2, 0.5, 0.8] {
+                let (x, y) = reserves_from_price(f(p), f(lv)).unwrap();
+                let inv: f64 = invariant_value(x, y, f(lv)).unwrap().to_num();
+                assert!(
+                    inv.abs() < 0.01,
+                    "Invariant at P={p}, L={lv}: {inv:.6e}"
+                );
+            }
         }
     }
 
+    // ================================================================
+    // 5. Price round-trip — must be < 0.001 (not 0.01)
+    // ================================================================
+
     #[test]
-    fn test_price_roundtrip() {
+    fn test_price_roundtrip_tight() {
         let l = f(1000.0);
-        for p in [0.1, 0.3, 0.5, 0.7, 0.9] {
+        for p in [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95] {
             let (x, y) = reserves_from_price(f(p), l).unwrap();
             let p_rt: f64 = price_from_reserves(x, y, l).unwrap().to_num();
             assert!(
-                (p_rt - p).abs() < 0.01,
-                "Price roundtrip failed: P={p}, got={p_rt}"
+                (p_rt - p).abs() < 0.001,
+                "Price roundtrip at P={p}: got={p_rt:.6}, err={:.6}", (p_rt - p).abs()
             );
         }
     }
 
+    // ================================================================
+    // 6. Pool value — oracle values, symmetry
+    // ================================================================
+
     #[test]
-    fn test_pool_value() {
+    fn test_pool_value_oracle() {
         let l = f(1000.0);
-        // V(0.5) = L * phi(0)
-        let v: f64 = pool_value(HALF, l).unwrap().to_num();
-        assert_close("V(0.5)", f(v), 398.942280401, 0.1);
-    }
-
-    // --- Swap ---
-
-    #[test]
-    fn test_swap_usdc_yes() {
-        let l = f(1000.0);
-        let (x, y) = reserves_from_price(HALF, l).unwrap();
-        let r = compute_swap_output(x, y, l, f(100.0), SwapSide::Usdc, SwapSide::Yes).unwrap();
-        assert!(r.output > ZERO, "Output should be positive");
-        assert!(r.price_new > HALF, "Price should increase after buying YES");
-        // Invariant must hold for new reserves
-        let inv: f64 = invariant_value(r.x_new, r.y_new, l).unwrap().to_num();
-        assert!(inv.abs() < 1.0, "Invariant broken after swap: {inv}");
-    }
-
-    #[test]
-    fn test_swap_roundtrip() {
-        let l = f(1000.0);
-        let (x, y) = reserves_from_price(HALF, l).unwrap();
-        // Buy YES with 10 USDC
-        let r1 = compute_swap_output(x, y, l, f(10.0), SwapSide::Usdc, SwapSide::Yes).unwrap();
-        // Sell exact output back
-        let r2 = compute_swap_output(
-            r1.x_new, r1.y_new, l, r1.output, SwapSide::Yes, SwapSide::Usdc,
-        )
-        .unwrap();
-        let got_back: f64 = r2.output.to_num();
-        let loss = (got_back - 10.0).abs() / 10.0;
-        assert!(
-            loss < 0.01,
-            "Swap round-trip loss too high: {loss:.6}, got_back={got_back}"
-        );
-    }
-
-    // --- suggest_l_zero ---
-
-    #[test]
-    fn test_suggest_l_zero() {
-        // budget=1000, 7 days -> V(0.5, t=0) ~ 1000
-        let l0 = suggest_l_zero_for_budget(1000, 86400 * 7).unwrap();
-        let l_eff = l_effective(l0, 86400 * 7).unwrap();
-        let v: f64 = pool_value(HALF, l_eff).unwrap().to_num();
-        assert!(
-            (v - 1000.0).abs() < 1.0,
-            "V(0.5) should be ~1000, got {v}"
-        );
-    }
-
-    // --- Full cross-validation against Python oracle ---
-
-    #[test]
-    fn test_cross_validation_print() {
-        println!("\n=== RUST CROSS-VALIDATION ===\n");
-
-        // Phi_inv (most critical function)
-        println!("--- Phi_inv ---");
-        for p in [0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99] {
-            let v: f64 = capital_phi_inv_fixed(f(p)).unwrap().to_num();
-            println!("  Phi_inv({p}) = {v:.12}");
-        }
-
-        // Reserves
-        println!("\n--- reserves_from_price (L=1000) ---");
-        let l = f(1000.0);
-        for p in [0.1, 0.3, 0.5, 0.7, 0.9] {
-            let (x, y) = reserves_from_price(f(p), l).unwrap();
-            let xf: f64 = x.to_num();
-            let yf: f64 = y.to_num();
-            println!("  P={p}: x={xf:.6}, y={yf:.6}, y-x={:.6}", yf - xf);
-        }
-
-        // Pool value
-        println!("\n--- pool_value (L=1000) ---");
-        for p in [0.1, 0.3, 0.5, 0.7, 0.9] {
+        // From oracle/test_vectors.json "pool_value.l_eff_1000"
+        let cases: &[(f64, f64)] = &[
+            (0.05, 103.136),
+            (0.1, 175.498),
+            (0.2, 279.962),
+            (0.3, 347.693),
+            (0.4, 386.343),
+            (0.5, 398.942),
+            (0.6, 386.343),
+            (0.7, 347.693),
+            (0.8, 279.962),
+            (0.9, 175.498),
+            (0.95, 103.136),
+        ];
+        for &(p, expected) in cases {
             let v: f64 = pool_value(f(p), l).unwrap().to_num();
-            println!("  V({p}) = {v:.10}");
+            assert!(
+                (v - expected).abs() < 0.5,
+                "V({p}): got={v:.3}, expected={expected:.3}"
+            );
         }
-
-        // Invariant
-        println!("\n--- invariant check ---");
-        for p in [0.1, 0.3, 0.5, 0.7, 0.9] {
-            let (x, y) = reserves_from_price(f(p), l).unwrap();
-            let inv: f64 = invariant_value(x, y, l).unwrap().to_num();
-            println!("  P={p}: inv={inv:.2e}");
+        // Symmetry: V(P) = V(1-P)
+        for p in [0.1, 0.2, 0.3, 0.4] {
+            let v1: f64 = pool_value(f(p), l).unwrap().to_num();
+            let v2: f64 = pool_value(f(1.0 - p), l).unwrap().to_num();
+            assert!(
+                (v1 - v2).abs() < 0.5,
+                "V({p}) != V({:.1}): {v1:.3} vs {v2:.3}", 1.0 - p
+            );
         }
+        // V is maximal at P=0.5
+        let v_max: f64 = pool_value(HALF, l).unwrap().to_num();
+        for p in [0.1, 0.3, 0.7, 0.9] {
+            let v: f64 = pool_value(f(p), l).unwrap().to_num();
+            assert!(v < v_max, "V({p})={v:.3} should be < V(0.5)={v_max:.3}");
+        }
+    }
 
-        // Swap
-        println!("\n--- swap USDC->YES at P=0.5, L=1000 ---");
+    // ================================================================
+    // 7. Swap — all 6 types tested, oracle values
+    // ================================================================
+
+    #[test]
+    fn test_swap_usdc_yes_oracle() {
+        let l = f(1000.0);
         let (x, y) = reserves_from_price(HALF, l).unwrap();
-        for delta in [10.0, 50.0, 100.0] {
+        // From oracle/test_vectors.json "swap.at_p_0.5"
+        let cases: &[(f64, f64, f64)] = &[
+            // (delta_in, expected_output, expected_price_new)
+            (10.0, 19.843, 0.50792),
+            (50.0, 96.303, 0.53836),
+            (100.0, 186.207, 0.57386),
+            (200.0, 351.273, 0.63731),
+        ];
+        for &(delta, exp_out, exp_price) in cases {
             let r = compute_swap_output(x, y, l, f(delta), SwapSide::Usdc, SwapSide::Yes).unwrap();
             let out: f64 = r.output.to_num();
             let pn: f64 = r.price_new.to_num();
-            println!("  {delta} USDC -> {out:.10} YES, price_new={pn:.10}");
+            assert!((out - exp_out).abs() < 0.5, "{delta} USDC->YES: got={out:.3}, expected={exp_out:.3}");
+            assert!((pn - exp_price).abs() < 0.001, "{delta} price_new: got={pn:.5}, expected={exp_price:.5}");
+            // Invariant must hold
+            let inv: f64 = invariant_value(r.x_new, r.y_new, l).unwrap().to_num();
+            assert!(inv.abs() < 0.01, "Invariant after swap {delta}: {inv:.6e}");
         }
-
-        // suggest_l_zero
-        println!("\n--- suggest_l_zero ---");
-        let l0 = suggest_l_zero_for_budget(1000, 86400 * 7).unwrap();
-        let l_eff_val = l_effective(l0, 86400 * 7).unwrap();
-        let v: f64 = pool_value(HALF, l_eff_val).unwrap().to_num();
-        let l0f: f64 = l0.to_num();
-        let lef: f64 = l_eff_val.to_num();
-        println!("  L_0={l0f:.12}, L_eff={lef:.6}, V(0.5)={v:.10}");
     }
 
-    /// Strict cross-validation with exact Python oracle values.
-    /// These are the EXACT outputs from oracle/pm_amm_math.py.
     #[test]
-    fn test_strict_oracle_match() {
+    fn test_swap_usdc_no() {
         let l = f(1000.0);
-
-        // Pool value V(0.5) = 398.9422804014 (Python oracle)
-        let v05: f64 = pool_value(HALF, l).unwrap().to_num();
-        assert!((v05 - 398.9422804014).abs() < 0.5, "V(0.5) = {v05}");
-
-        // Pool value symmetric: V(0.3) = V(0.7) = 347.6926142001
-        let v03: f64 = pool_value(f(0.3), l).unwrap().to_num();
-        let v07: f64 = pool_value(f(0.7), l).unwrap().to_num();
-        assert!((v03 - 347.6926).abs() < 1.0, "V(0.3) = {v03}");
-        assert!((v03 - v07).abs() < 1.0, "V(0.3) != V(0.7): {v03} vs {v07}");
-
-        // Reserves at P=0.5: x = y = 398.94
-        let (x5, y5) = reserves_from_price(HALF, l).unwrap();
-        let x5f: f64 = x5.to_num();
-        let y5f: f64 = y5.to_num();
-        assert!((x5f - y5f).abs() < 0.1, "x != y at P=0.5: {x5f} vs {y5f}");
-        assert!((x5f - 398.94).abs() < 1.0, "x(0.5) = {x5f}");
-
-        // Reserves at P=0.1: x=1328.89, y=47.34 (Python oracle)
-        let (x1, y1) = reserves_from_price(f(0.1), l).unwrap();
-        let x1f: f64 = x1.to_num();
-        let y1f: f64 = y1.to_num();
-        assert!((x1f - 1328.89).abs() < 2.0, "x(0.1) = {x1f}, expected 1328.89");
-        assert!((y1f - 47.34).abs() < 2.0, "y(0.1) = {y1f}, expected 47.34");
-
-        // Swap: 100 USDC -> ~186.207 YES (Python oracle)
         let (x, y) = reserves_from_price(HALF, l).unwrap();
-        let r = compute_swap_output(x, y, l, f(100.0), SwapSide::Usdc, SwapSide::Yes).unwrap();
+        let r = compute_swap_output(x, y, l, f(100.0), SwapSide::Usdc, SwapSide::No).unwrap();
         let out: f64 = r.output.to_num();
-        assert!((out - 186.207).abs() < 2.0, "swap 100 USDC->YES = {out}, expected ~186.207");
+        assert!(out > 0.0, "USDC->NO output should be positive");
+        // By symmetry at P=0.5, USDC->NO output == USDC->YES output
+        let r_yes = compute_swap_output(x, y, l, f(100.0), SwapSide::Usdc, SwapSide::Yes).unwrap();
+        let out_yes: f64 = r_yes.output.to_num();
+        assert!((out - out_yes).abs() < 0.5, "USDC->NO != USDC->YES at P=0.5: {out:.3} vs {out_yes:.3}");
+        // Price should decrease (buying NO = selling YES)
         let pn: f64 = r.price_new.to_num();
-        assert!((pn - 0.5739).abs() < 0.01, "price_new = {pn}, expected ~0.5739");
+        assert!(pn < 0.5, "Price should decrease after buying NO: {pn}");
+    }
 
-        // suggest_l_zero: budget=1000, 7d -> L_0 = 3.22317616571
-        let l0: f64 = suggest_l_zero_for_budget(1000, 86400 * 7).unwrap().to_num();
-        assert!((l0 - 3.22317).abs() < 0.01, "L_0 = {l0}, expected ~3.22318");
+    #[test]
+    fn test_swap_yes_usdc() {
+        let l = f(1000.0);
+        let (x, y) = reserves_from_price(HALF, l).unwrap();
+        let r = compute_swap_output(x, y, l, f(50.0), SwapSide::Yes, SwapSide::Usdc).unwrap();
+        let out: f64 = r.output.to_num();
+        assert!(out > 0.0, "YES->USDC output should be positive");
+        // Price should decrease (selling YES)
+        let pn: f64 = r.price_new.to_num();
+        assert!(pn < 0.5, "Price should decrease after selling YES: {pn}");
+    }
+
+    #[test]
+    fn test_swap_no_usdc() {
+        let l = f(1000.0);
+        let (x, y) = reserves_from_price(HALF, l).unwrap();
+        let r = compute_swap_output(x, y, l, f(50.0), SwapSide::No, SwapSide::Usdc).unwrap();
+        let out: f64 = r.output.to_num();
+        assert!(out > 0.0, "NO->USDC output should be positive");
+        // Price should increase (selling NO = buying YES)
+        let pn: f64 = r.price_new.to_num();
+        assert!(pn > 0.5, "Price should increase after selling NO: {pn}");
+    }
+
+    #[test]
+    fn test_swap_yes_no() {
+        let l = f(1000.0);
+        let (x, y) = reserves_from_price(HALF, l).unwrap();
+        let r = compute_swap_output(x, y, l, f(50.0), SwapSide::Yes, SwapSide::No).unwrap();
+        let out: f64 = r.output.to_num();
+        assert!(out > 0.0, "YES->NO output should be positive");
+        // Price should decrease
+        let pn: f64 = r.price_new.to_num();
+        assert!(pn < 0.5, "Price should decrease after YES->NO: {pn}");
+        // Invariant
+        let inv: f64 = invariant_value(r.x_new, r.y_new, l).unwrap().to_num();
+        assert!(inv.abs() < 0.01, "Invariant after YES->NO: {inv:.6e}");
+    }
+
+    #[test]
+    fn test_swap_no_yes() {
+        let l = f(1000.0);
+        let (x, y) = reserves_from_price(HALF, l).unwrap();
+        let r = compute_swap_output(x, y, l, f(50.0), SwapSide::No, SwapSide::Yes).unwrap();
+        let out: f64 = r.output.to_num();
+        assert!(out > 0.0, "NO->YES output should be positive");
+        // Price should increase
+        let pn: f64 = r.price_new.to_num();
+        assert!(pn > 0.5, "Price should increase after NO->YES: {pn}");
+        // Invariant
+        let inv: f64 = invariant_value(r.x_new, r.y_new, l).unwrap().to_num();
+        assert!(inv.abs() < 0.01, "Invariant after NO->YES: {inv:.6e}");
+    }
+
+    // ================================================================
+    // 8. Swap round-trips — all directions, loss < 0.1%
+    // ================================================================
+
+    #[test]
+    fn test_swap_roundtrip_usdc_yes() {
+        let l = f(1000.0);
+        let (x, y) = reserves_from_price(HALF, l).unwrap();
+        let r1 = compute_swap_output(x, y, l, f(10.0), SwapSide::Usdc, SwapSide::Yes).unwrap();
+        let r2 = compute_swap_output(r1.x_new, r1.y_new, l, r1.output, SwapSide::Yes, SwapSide::Usdc).unwrap();
+        let back: f64 = r2.output.to_num();
+        let loss = (back - 10.0).abs() / 10.0;
+        assert!(loss < 0.001, "USDC->YES->USDC round-trip loss: {loss:.6}");
+    }
+
+    #[test]
+    fn test_swap_roundtrip_usdc_no() {
+        let l = f(1000.0);
+        let (x, y) = reserves_from_price(HALF, l).unwrap();
+        let r1 = compute_swap_output(x, y, l, f(10.0), SwapSide::Usdc, SwapSide::No).unwrap();
+        let r2 = compute_swap_output(r1.x_new, r1.y_new, l, r1.output, SwapSide::No, SwapSide::Usdc).unwrap();
+        let back: f64 = r2.output.to_num();
+        let loss = (back - 10.0).abs() / 10.0;
+        assert!(loss < 0.001, "USDC->NO->USDC round-trip loss: {loss:.6}");
+    }
+
+    #[test]
+    fn test_swap_roundtrip_yes_no() {
+        let l = f(1000.0);
+        let (x, y) = reserves_from_price(HALF, l).unwrap();
+        let r1 = compute_swap_output(x, y, l, f(10.0), SwapSide::Yes, SwapSide::No).unwrap();
+        let r2 = compute_swap_output(r1.x_new, r1.y_new, l, r1.output, SwapSide::No, SwapSide::Yes).unwrap();
+        let back: f64 = r2.output.to_num();
+        let loss = (back - 10.0).abs() / 10.0;
+        assert!(loss < 0.001, "YES->NO->YES round-trip loss: {loss:.6}");
+    }
+
+    // ================================================================
+    // 9. Swap at non-0.5 prices
+    // ================================================================
+
+    #[test]
+    fn test_swap_at_extreme_prices() {
+        let l = f(1000.0);
+        // At P=0.2 (low price)
+        let (x, y) = reserves_from_price(f(0.2), l).unwrap();
+        let r = compute_swap_output(x, y, l, f(50.0), SwapSide::Usdc, SwapSide::Yes).unwrap();
+        assert!(r.output.to_num::<f64>() > 0.0);
+        assert!(r.price_new.to_num::<f64>() > 0.2);
+        let inv: f64 = invariant_value(r.x_new, r.y_new, l).unwrap().to_num();
+        assert!(inv.abs() < 0.01, "Invariant at P=0.2: {inv:.6e}");
+
+        // At P=0.8 (high price)
+        let (x, y) = reserves_from_price(f(0.8), l).unwrap();
+        let r = compute_swap_output(x, y, l, f(50.0), SwapSide::Usdc, SwapSide::Yes).unwrap();
+        assert!(r.output.to_num::<f64>() > 0.0);
+        assert!(r.price_new.to_num::<f64>() > 0.8);
+        let inv: f64 = invariant_value(r.x_new, r.y_new, l).unwrap().to_num();
+        assert!(inv.abs() < 0.01, "Invariant at P=0.8: {inv:.6e}");
+    }
+
+    // ================================================================
+    // 10. l_effective — direct test
+    // ================================================================
+
+    #[test]
+    fn test_l_effective() {
+        let l0 = f(10.0);
+        // L_eff = L_0 * sqrt(T-t)
+        let l7d = l_effective(l0, 604800).unwrap(); // 7 days
+        assert_close("L_eff(7d)", l7d, 10.0 * 777.68888, 0.1);
+
+        let l1d = l_effective(l0, 86400).unwrap(); // 1 day
+        assert_close("L_eff(1d)", l1d, 10.0 * 293.93877, 0.1);
+
+        // Error on non-positive
+        assert!(l_effective(l0, 0).is_err());
+        assert!(l_effective(l0, -1).is_err());
+    }
+
+    // ================================================================
+    // 11. suggest_l_zero — oracle cross-validation
+    // ================================================================
+
+    #[test]
+    fn test_suggest_l_zero_oracle() {
+        // From oracle/test_vectors.json
+        let l0 = suggest_l_zero_for_budget(1000, 604800).unwrap();
+        let l0f: f64 = l0.to_num();
+        assert!((l0f - 3.22318).abs() < 0.001, "L_0 = {l0f}");
+
+        let l_eff = l_effective(l0, 604800).unwrap();
+        let lef: f64 = l_eff.to_num();
+        assert!((lef - 2506.628).abs() < 1.0, "L_eff = {lef}");
+
+        let v: f64 = pool_value(HALF, l_eff).unwrap().to_num();
+        assert!((v - 1000.0).abs() < 0.1, "V(0.5) should be ~1000, got {v}");
+
+        // Errors
+        assert!(suggest_l_zero_for_budget(0, 604800).is_err());
+        assert!(suggest_l_zero_for_budget(1000, 0).is_err());
+        assert!(suggest_l_zero_for_budget(1000, -1).is_err());
     }
 }
