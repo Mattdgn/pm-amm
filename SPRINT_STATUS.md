@@ -3,13 +3,13 @@
 ## Completed
 
 - [x] Sprint 1 — Setup repo (2026-04-20)
+- [x] Sprint 2 — Module math `pm_math.rs` (2026-04-20) ⚠️ CRITIQUE
 
 ## In Progress
 
 (aucun)
 
 ## Pending
-- [ ] Sprint 2 — Module math `pm_math.rs` (6h) ⚠️ CRITIQUE
 - [ ] Sprint 3 — Scaffold Anchor (3h)
 - [ ] Sprint 4 — Module `accrual.rs` (5h)
 - [ ] Sprint 5 — Core instructions deposit/swap/withdraw (7h)
@@ -62,6 +62,26 @@ Sprint 1 ─┬─→ Sprint 2 ──┬─→ Sprint 4 ──→ Sprint 5 ─�
 ### Watch
 - Toujours passer `--tools-version v1.52` ou utiliser `pnpm build` depuis la racine
 
+## Metrics — Sprint 2
+- Files changed: 2
+- Lines: +727 / -4
+- Tests: 16 unit tests (pm_math)
+- Type errors: 0
+- Lint warnings: 0 (framework-only)
+
+## Retro — Sprint 2
+### Smooth
+- Python oracle first = caught swap model bugs before Rust
+- Acklam + Newton refinement gives good Phi_inv accuracy
+### Friction
+- Acklam Horner order was reversed (c6 first instead of c1 first)
+- Swap model needed rethinking: mint-pairs mechanism for USDC swaps
+### Watch
+- Phi_inv accuracy ~1e-3 at tails (p<0.02), sufficient for on-chain but monitor
+- exp_fixed limited to [-20, 20] — OK for normal distribution use
+
 ## Decisions
 - Sprint 1: Monorepo split anchor/ + app/ pour lisibilite — CLAUDE.md mis a jour
 - Sprint 1: Platform-tools v1.52 requis (v1.51 incompatible edition2024)
+- Sprint 2: Python oracle (oracle/) created as ground truth before Rust transposition
+- Sprint 2: Swap model uses mint-pairs for USDC swaps, key identity for reverse
