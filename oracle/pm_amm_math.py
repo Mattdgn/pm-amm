@@ -1,13 +1,13 @@
 """
-Oracle de vérité — pm-AMM math (Paradigm paper, Moallemi & Robinson 2024).
+pm-AMM math oracle — ground truth reference implementation.
 
-Utilise scipy.stats.norm comme référence exacte.
-Chaque fonction est tracée à sa section du paper (doc/wp-para.md).
+Implements all math from the Paradigm pm-AMM paper (Moallemi & Robinson, Nov 2024).
+Uses scipy.stats.norm as the exact reference for normal distribution functions.
+Every function is traced to its paper section (doc/wp-para.md).
 
 Usage:
     python3 oracle/pm_amm_math.py          # smoke test
     python3 oracle/test_oracle.py          # full test suite
-    python3 oracle/generate_test_vectors.py # export JSON for Rust
 """
 
 import math
@@ -15,16 +15,16 @@ from scipy.stats import norm
 
 
 # =============================================================================
-# 1. Distribution normale standard — scipy wrappers
+# 1. Standard normal distribution — scipy wrappers
 # =============================================================================
 
 def phi(z: float) -> float:
-    """PDF normale standard: (1/sqrt(2*pi)) * exp(-z^2/2)."""
+    """Standard normal PDF: (1/sqrt(2*pi)) * exp(-z^2/2)."""
     return norm.pdf(z)
 
 
 def capital_phi(z: float) -> float:
-    """CDF normale standard: Phi(z) = P(Z <= z)."""
+    """Standard normal CDF: Phi(z) = P(Z <= z)."""
     return norm.cdf(z)
 
 
@@ -39,7 +39,7 @@ def erf(x: float) -> float:
 
 
 # =============================================================================
-# 2. Liquidity — Section 8
+# 2. Effective liquidity — Paper section 8
 # =============================================================================
 
 def l_effective(l_zero: float, time_remaining: float) -> float:
@@ -49,12 +49,12 @@ def l_effective(l_zero: float, time_remaining: float) -> float:
 
 
 # =============================================================================
-# 3. Reserves — Equations (5) & (6), Section 7
+# 3. Reserves — Paper equations (5) & (6), section 7
 # =============================================================================
 
 def reserves_from_price(p: float, l_eff: float) -> tuple[float, float]:
     """
-    Compute optimal reserves (x*, y*) for price P and liquidity L_eff.
+    Compute optimal reserves (x*, y*) for price P and effective liquidity L_eff.
 
     Paper eq. (5): x*(P) = L_eff * { Phi_inv(P)*P + phi(Phi_inv(P)) - Phi_inv(P) }
     Paper eq. (6): y*(P) = L_eff * { Phi_inv(P)*P + phi(Phi_inv(P)) }
@@ -73,7 +73,7 @@ def reserves_from_price(p: float, l_eff: float) -> tuple[float, float]:
 
 def price_from_reserves(x: float, y: float, l_eff: float) -> float:
     """
-    Recover price from reserves using identity: y - x = L_eff * Phi_inv(P).
+    Recover price from reserves via key identity: y - x = L_eff * Phi_inv(P).
     Therefore P = Phi((y - x) / L_eff). Paper section 7.
     """
     assert l_eff > 0
@@ -82,12 +82,12 @@ def price_from_reserves(x: float, y: float, l_eff: float) -> float:
 
 
 # =============================================================================
-# 4. Invariant — Section 8 (dynamic version)
+# 4. Invariant — Paper section 7 (static) / section 8 (dynamic with L_eff)
 # =============================================================================
 
 def invariant_value(x: float, y: float, l_eff: float) -> float:
     """
-    Evaluate the pm-AMM invariant. Should be 0 for valid reserves.
+    Evaluate the pm-AMM invariant. Returns 0 for valid reserves.
 
     (y - x) * Phi((y - x) / L_eff) + L_eff * phi((y - x) / L_eff) - y = 0
     """
@@ -98,46 +98,40 @@ def invariant_value(x: float, y: float, l_eff: float) -> float:
 
 
 # =============================================================================
-# 5. Pool value — Section 7
+# 5. Pool value — Paper section 7
 # =============================================================================
 
 def pool_value(p: float, l_eff: float) -> float:
-    """
-    V(P) = L_eff * phi(Phi_inv(P)). Paper section 7.
-    """
+    """V(P) = L_eff * phi(Phi_inv(P)). Paper section 7."""
     assert 0 < p < 1
     assert l_eff > 0
     return l_eff * phi(capital_phi_inv(p))
 
 
 def pool_value_from_reserves(x: float, y: float, l_eff: float) -> float:
-    """Pool value computed from reserves (derive price first)."""
+    """Pool value computed from reserves (derives price first)."""
     p = price_from_reserves(x, y, l_eff)
     return pool_value(p, l_eff)
 
 
 # =============================================================================
-# 6. LVR — Section 7 & 8
+# 6. LVR — Paper sections 7 & 8
 # =============================================================================
 
 def lvr_rate(v_t: float, time_remaining: float) -> float:
-    """
-    Instantaneous LVR rate: LVR_t = V_t / (2 * (T - t)). Paper section 7.
-    """
+    """Instantaneous LVR rate: LVR_t = V_t / (2 * (T - t)). Paper section 7."""
     assert time_remaining > 0
     return v_t / (2.0 * time_remaining)
 
 
 def expected_lvr(v_0: float, total_duration: float) -> float:
-    """
-    Expected LVR (constant): E[LVR_t] = V_0 / (2T). Paper section 8.
-    """
+    """Expected LVR (constant in time): E[LVR_t] = V_0 / (2T). Paper section 8."""
     assert total_duration > 0
     return v_0 / (2.0 * total_duration)
 
 
 # =============================================================================
-# 7. Swap — Binary search on invariant
+# 7. Swap — Invariant-based with mint/burn mechanism
 # =============================================================================
 
 def compute_swap_output(
@@ -148,15 +142,21 @@ def compute_swap_output(
     """
     Compute swap output and new reserves.
 
-    Sides: 'yes' (x), 'no' (y), 'usdc'
+    Sides: 'yes' (x reserve), 'no' (y reserve), 'usdc'
 
     Mechanisms:
-      USDC→YES: mint pairs, swap NO→YES. output = delta_in + (x - x_new)
-      USDC→NO:  mint pairs, swap YES→NO. output = delta_in + (y - y_new)
-      YES→USDC: split YES into pool + pairing. P_new = Phi((y-x-delta)/L)
-      NO→USDC:  split NO into pool + pairing. P_new = Phi((y-x+delta)/L)
-      YES→NO:   direct AMM swap. output = y - y_new
-      NO→YES:   direct AMM swap. output = x - x_new
+      USDC->YES: mint delta_in YES+NO pairs, swap NO->YES via pool.
+                 output = delta_in + (x_old - x_new)
+      USDC->NO:  mint delta_in YES+NO pairs, swap YES->NO via pool.
+                 output = delta_in + (y_old - y_new)
+      YES->USDC: some YES enter pool, released NO pairs with remaining YES.
+                 P_new = Phi((y - x - delta_in) / L_eff)
+                 output = y_old - y_new
+      NO->USDC:  some NO enter pool, released YES pairs with remaining NO.
+                 P_new = Phi((y - x + delta_in) / L_eff)
+                 output = x_old - x_new
+      YES->NO:   direct AMM swap. output = y_old - y_new
+      NO->YES:   direct AMM swap. output = x_old - x_new
 
     Returns dict with 'output', 'x_new', 'y_new', 'price_new'.
     """
@@ -171,13 +171,14 @@ def compute_swap_output(
         output = delta_in + (y - y_new)
 
     elif side_in == 'yes' and side_out == 'usdc':
-        # P_new = Phi((y - x - delta_in) / L_eff)
+        # Key identity: y_new - x_new = (y - x) - delta_in
         new_z = ((y - x) - delta_in) / l_eff
         p_new = capital_phi(new_z)
         x_new, y_new = reserves_from_price(max(0.0001, min(0.9999, p_new)), l_eff)
         output = y - y_new
 
     elif side_in == 'no' and side_out == 'usdc':
+        # Key identity: y_new - x_new = (y - x) + delta_in
         new_z = ((y - x) + delta_in) / l_eff
         p_new = capital_phi(new_z)
         x_new, y_new = reserves_from_price(max(0.0001, min(0.9999, p_new)), l_eff)
@@ -202,17 +203,10 @@ def compute_swap_output(
 
 def _find_x_from_y(y_target: float, l_eff: float,
                    tol: float = 1e-12, max_iter: int = 100) -> float:
-    """Given y and l_eff, find x such that invariant(x, y, l_eff) = 0."""
-    # From invariant: x must satisfy
-    # (y-x)*Phi((y-x)/L) + L*phi((y-x)/L) - y = 0
-    # x is bounded: for p->0, x->-inf; for p->1, x-> y
-    # Use Newton's method starting from a reasonable guess
-    p_guess = 0.5
-    x, _ = reserves_from_price(p_guess, l_eff)
-    # Adjust: we know y, find x
-    # Binary search: invariant(x_low) > 0, invariant(x_high) < 0
-    x_low = y_target - l_eff * 5  # p ~ 1
-    x_high = y_target + l_eff * 5  # p ~ 0
+    """Given y and l_eff, find x such that invariant(x, y, l_eff) = 0.
+    Uses binary search. Invariant is positive at low x, negative at high x."""
+    x_low = y_target - l_eff * 5
+    x_high = y_target + l_eff * 5
 
     for _ in range(max_iter):
         x_mid = (x_low + x_high) / 2.0
@@ -220,16 +214,17 @@ def _find_x_from_y(y_target: float, l_eff: float,
         if abs(val) < tol:
             return x_mid
         if val > 0:
-            x_low = x_mid   # inv positive at low x → increase x
+            x_low = x_mid   # invariant positive at low x -> increase x
         else:
-            x_high = x_mid  # inv negative at high x → decrease x
+            x_high = x_mid  # invariant negative at high x -> decrease x
 
     return (x_low + x_high) / 2.0
 
 
 def _find_y_from_x(x_target: float, l_eff: float,
                    tol: float = 1e-12, max_iter: int = 100) -> float:
-    """Given x and l_eff, find y such that invariant(x, y, l_eff) = 0."""
+    """Given x and l_eff, find y such that invariant(x, y, l_eff) = 0.
+    Uses binary search. Invariant is positive at low y, negative at high y."""
     y_low = x_target - l_eff * 5
     y_high = x_target + l_eff * 5
 
@@ -247,15 +242,17 @@ def _find_y_from_x(x_target: float, l_eff: float,
 
 
 # =============================================================================
-# 8. suggest_l_zero — Section 7
+# 8. suggest_l_zero — derived from paper section 7
 # =============================================================================
 
 def suggest_l_zero_for_budget(budget: float, duration_secs: float) -> float:
     """
+    Calibrate L_0 so that pool value at P=0.5 equals the budget.
+
     L_0 = budget / (phi(0) * sqrt(T))
 
-    At P=0.5, V(0.5) = L_eff * phi(0) = L_0 * sqrt(T) * phi(0) = budget.
-    phi(0) = 1/sqrt(2*pi) ≈ 0.39894.
+    Derivation: V(0.5) = L_eff * phi(0) = L_0 * sqrt(T) * phi(0) = budget.
+    phi(0) = 1/sqrt(2*pi) ~ 0.39894.
     """
     assert budget > 0
     assert duration_secs > 0
@@ -265,7 +262,7 @@ def suggest_l_zero_for_budget(budget: float, duration_secs: float) -> float:
 
 
 # =============================================================================
-# 9. dC_t accrual — Section 8
+# 9. dC_t accrual — Paper section 8
 # =============================================================================
 
 def compute_accrual(
@@ -273,13 +270,15 @@ def compute_accrual(
     x_old: float, y_old: float
 ) -> dict:
     """
-    Compute dC_t accrual: when L_eff decreases, tokens are released.
+    Compute dC_t accrual: as time passes, L_eff decreases and tokens are released.
 
     L_eff_old = L_0 * sqrt(T - t_old)
     L_eff_new = L_0 * sqrt(T - t_new)
 
-    New reserves at same price but lower L_eff.
-    Released tokens = old_reserves - new_reserves.
+    Reserves scale linearly with L_eff at constant price (eq. 5 & 6).
+    Released tokens = old_reserves - new_reserves (proportional to LPs).
+
+    Paper section 8: dC_t = -(L_dot_t / L_t) * V_t * dt
     """
     remaining_old = end_ts - t_old
     remaining_new = end_ts - t_new
@@ -292,8 +291,8 @@ def compute_accrual(
 
     x_new, y_new = reserves_from_price(p, l_eff_new)
 
-    delta_x = x_old - x_new  # YES released
-    delta_y = y_old - y_new  # NO released
+    delta_x = x_old - x_new  # YES tokens released to LPs
+    delta_y = y_old - y_new  # NO tokens released to LPs
 
     return {
         'price': p,
@@ -301,8 +300,8 @@ def compute_accrual(
         'l_eff_new': l_eff_new,
         'x_new': x_new,
         'y_new': y_new,
-        'delta_x': delta_x,  # YES tokens released to LPs
-        'delta_y': delta_y,  # NO tokens released to LPs
+        'delta_x': delta_x,
+        'delta_y': delta_y,
         'value_released': pool_value(p, l_eff_old) - pool_value(p, l_eff_new),
     }
 

@@ -1,8 +1,8 @@
 """
-Tests exhaustifs de l'oracle pm-AMM.
+Exhaustive test suite for the pm-AMM math oracle.
 
-Vérifie toutes les propriétés mathématiques du paper Paradigm.
-Génère les vecteurs de test JSON pour cross-validation Rust.
+Verifies all mathematical properties from the Paradigm paper (doc/wp-para.md).
+Exports test vectors as JSON for Rust cross-validation.
 """
 
 import json
@@ -89,19 +89,19 @@ def test_normal():
 
 
 # =============================================================================
-# 2. Reserves — eq. (5) & (6)
+# 2. Reserves — Paper eq. (5) & (6)
 # =============================================================================
 def test_reserves():
     print("--- Reserves (eq. 5 & 6) ---")
 
     l_eff = 1000.0
 
-    # At P=0.5: x = y (by symmetry, Phi_inv(0.5)=0)
+    # At P=0.5: x = y (by symmetry, Phi_inv(0.5) = 0)
     x, y = reserves_from_price(0.5, l_eff)
     check("x(0.5)=y(0.5)", x, y)
     check("x(0.5)=L*phi(0)", x, l_eff * phi(0))
 
-    # Identity: y - x = L_eff * Phi_inv(P)
+    # Key identity: y - x = L_eff * Phi_inv(P)
     for p in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
         x, y = reserves_from_price(p, l_eff)
         expected_diff = l_eff * capital_phi_inv(p)
@@ -119,7 +119,7 @@ def test_reserves():
 
 
 # =============================================================================
-# 3. Invariant
+# 3. Invariant — Paper section 7
 # =============================================================================
 def test_invariant():
     print("--- Invariant ---")
@@ -152,7 +152,7 @@ def test_price_roundtrip():
 
 
 # =============================================================================
-# 5. Pool value — Section 7
+# 5. Pool value — Paper section 7
 # =============================================================================
 def test_pool_value():
     print("--- Pool value (section 7) ---")
@@ -163,13 +163,13 @@ def test_pool_value():
     v = pool_value(0.5, l_eff)
     check("V(0.5)=L*phi(0)", v, l_eff * phi(0))
 
-    # V should be maximal at P=0.5 (concavity)
+    # V is maximal at P=0.5 (concavity from Lemma 1)
     v_max = pool_value(0.5, l_eff)
     for p in [0.1, 0.3, 0.7, 0.9]:
         v_p = pool_value(p, l_eff)
         assert v_p < v_max, f"V({p}) = {v_p} should be < V(0.5) = {v_max}"
 
-    # V from reserves should match V direct
+    # V from reserves must match V direct
     for p in [0.1, 0.3, 0.5, 0.7, 0.9]:
         x, y = reserves_from_price(p, l_eff)
         v_direct = pool_value(p, l_eff)
@@ -184,7 +184,7 @@ def test_pool_value():
 
 
 # =============================================================================
-# 6. LVR — Sections 7 & 8
+# 6. LVR — Paper sections 7 & 8
 # =============================================================================
 def test_lvr():
     print("--- LVR (sections 7 & 8) ---")
@@ -196,15 +196,15 @@ def test_lvr():
     l_eff_0 = l_effective(l_zero, total_duration)
     v_0 = pool_value(0.5, l_eff_0)
 
-    # E[LVR] = V_0 / (2T) — constant
+    # E[LVR] = V_0 / (2T) — constant (paper section 8)
     e_lvr = expected_lvr(v_0, total_duration)
 
-    # LVR at t=0: V_0 / (2*T)
+    # LVR at t=0
     lvr_0 = lvr_rate(v_0, total_duration)
     check("E[LVR]=LVR(t=0)", e_lvr, lvr_0)
 
     # E[LVR] constant uses EXPECTED pool value V_bar_t = V_0 * (T-t)/T
-    # (section 8: dynamic pm-AMM makes V_bar linear in time remaining)
+    # Paper section 8: dynamic pm-AMM makes V_bar decay linearly
     for frac in [0.0, 0.25, 0.5, 0.75]:
         t = frac * total_duration
         remaining = total_duration - t
@@ -225,18 +225,18 @@ def test_swap():
     l_eff = 1000.0
     x, y = reserves_from_price(0.5, l_eff)
 
-    # USDC → YES
+    # USDC -> YES
     r = compute_swap_output(x, y, l_eff, 100.0, 'usdc', 'yes')
     assert r['output'] > 0, f"Swap output should be positive, got {r['output']}"
     assert r['price_new'] > 0.5, f"Price should increase after buying YES"
     inv_after = invariant_value(r['x_new'], r['y_new'], l_eff)
     check_near_zero("inv_after_swap_usdc_yes", inv_after, tol=1e-8)
 
-    # USDC → NO (by symmetry at P=0.5, output should be same)
+    # USDC -> NO (by symmetry at P=0.5, output should be same)
     r_no = compute_swap_output(x, y, l_eff, 100.0, 'usdc', 'no')
     check("swap_symmetry_0.5", r['output'], r_no['output'], tol=1e-6)
 
-    # YES → USDC (sell)
+    # YES -> USDC (sell)
     r_sell = compute_swap_output(x, y, l_eff, 50.0, 'yes', 'usdc')
     assert r_sell['output'] > 0, "Sell output should be positive"
 
@@ -272,7 +272,7 @@ def test_swap():
 def test_suggest_l_zero():
     print("--- suggest_l_zero ---")
 
-    # Budget 1000, 7 days → V(0.5, t=0) should be ~1000
+    # Budget 1000, 7 days -> V(0.5, t=0) should be ~1000
     budget = 1000.0
     duration = 86400.0 * 7
     l0 = suggest_l_zero_for_budget(budget, duration)
@@ -299,7 +299,7 @@ def test_suggest_l_zero():
 
 
 # =============================================================================
-# 9. Accrual (dC_t)
+# 9. Accrual (dC_t) — Paper section 8
 # =============================================================================
 def test_accrual():
     print("--- Accrual (dC_t, section 8) ---")
@@ -314,22 +314,23 @@ def test_accrual():
 
     result = compute_accrual(l_zero, t_old, t_new, end_ts, x0, y0)
 
-    # Tokens should be released (positive)
+    # Tokens should be released (positive deltas)
     assert result['delta_x'] > 0, "YES tokens should be released"
     assert result['delta_y'] > 0, "NO tokens should be released"
 
     # At P=0.5, delta_x == delta_y (symmetry)
     check("accrual_symmetry", result['delta_x'], result['delta_y'], tol=1e-6)
 
-    # New reserves should satisfy invariant
+    # New reserves must satisfy invariant with new L_eff
     inv = invariant_value(result['x_new'], result['y_new'], result['l_eff_new'])
     check_near_zero("inv_after_accrual", inv)
 
     # Value released should be positive
     assert result['value_released'] > 0
 
-    # At fixed P=0.5 (deterministic, no LVR), total released = V_0
-    # The W_T = W_0/2 property is over EXPECTED price paths (Sprint 9 Monte Carlo)
+    # Full-lifetime simulation at fixed P=0.5 (deterministic, no arbitrage):
+    # With no price movement, LVR=0, so ALL value returns to LPs -> W_T = W_0.
+    # The E[W_T]=W_0/2 property requires averaging over price paths (Sprint 9 MC).
     l_zero = 10.0
     end_ts = 86400.0 * 7
     l_eff_init = l_effective(l_zero, end_ts)
