@@ -43,7 +43,22 @@ export function useSwapQuote(
         const userNo = await getAssociatedTokenAddress(noMint, publicKey);
         const outputAta = side === "yes" ? userYes : userNo;
 
-        // Get pre-balance
+        // Check all ATAs exist — if not, include create instructions in simulation
+        const { createAssociatedTokenAccountInstruction } = await import("@solana/spl-token");
+        const ataIxs: any[] = [];
+        const atas = [
+          { ata: userUsdc, mint: USDC_MINT },
+          { ata: userYes, mint: yesMint },
+          { ata: userNo, mint: noMint },
+        ];
+        for (const { ata, mint } of atas) {
+          const info = await connection.getAccountInfo(ata);
+          if (!info) {
+            ataIxs.push(createAssociatedTokenAccountInstruction(publicKey, ata, publicKey, mint));
+          }
+        }
+
+        // Get pre-balance of output ATA
         let preBal = 0;
         try {
           const info = await connection.getAccountInfo(outputAta);
@@ -51,9 +66,9 @@ export function useSwapQuote(
             const view = new DataView(info.data.buffer, info.data.byteOffset);
             preBal = Number(view.getBigUint64(64, true));
           }
-        } catch { /* ATA doesn't exist yet */ }
+        } catch { /* ATA doesn't exist, preBal = 0 */ }
 
-        // Build + simulate
+        // Build tx with ATA creates (if needed) + swap
         const direction = side === "yes" ? { usdcToYes: {} } : { usdcToNo: {} };
         const lamports = Math.floor(amountUsdc * 1e6);
 
@@ -69,6 +84,7 @@ export function useSwapQuote(
 
         const tx = new Transaction().add(
           ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }),
+          ...ataIxs,
           ix
         );
         tx.feePayer = publicKey;
