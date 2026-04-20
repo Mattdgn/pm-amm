@@ -76,6 +76,11 @@ export function useSwapQuote(
 
         const sim = await connection.simulateTransaction(tx, undefined, [outputAta]);
 
+        console.log("[swap-quote] sim logs:", sim.value.logs);
+        console.log("[swap-quote] sim err:", sim.value.err);
+        console.log("[swap-quote] sim accounts:", (sim.value as any).accounts);
+        console.log("[swap-quote] CU used:", sim.value.unitsConsumed);
+
         if (sim.value.err) {
           return { output: 0, error: `Sim error: ${JSON.stringify(sim.value.err)}` };
         }
