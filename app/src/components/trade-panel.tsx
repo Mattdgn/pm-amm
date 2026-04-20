@@ -58,8 +58,9 @@ export function TradePanel({ market }: { market: MarketData }) {
       const direction =
         side === "yes" ? { usdcToYes: {} } : { usdcToNo: {} };
 
+      const BN = (await import("@coral-xyz/anchor")).BN;
       const tx = await (program.methods as any)
-        .swap(direction, lamports, 0)
+        .swap(direction, new BN(lamports), new BN(0))
         .accounts({
           signer: publicKey,
           market: marketPda,
