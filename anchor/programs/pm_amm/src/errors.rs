@@ -12,7 +12,7 @@ pub enum PmAmmError {
     MarketExpired,
     #[msg("Market has not expired yet")]
     MarketNotExpired,
-    #[msg("Insufficient liquidity")]
+    #[msg("Insufficient liquidity or balance")]
     InsufficientLiquidity,
     #[msg("Slippage tolerance exceeded")]
     SlippageExceeded,
@@ -22,14 +22,14 @@ pub enum PmAmmError {
     InvalidPrice,
     #[msg("Math overflow")]
     MathOverflow,
-    #[msg("Numerical convergence failed")]
-    ConvergenceFailed,
-    #[msg("Accrual computation failed")]
-    AccrualFailed,
     #[msg("No residuals to claim")]
     NoResidualsToClaim,
     #[msg("Invalid duration")]
     InvalidDuration,
-    #[msg("Invalid budget")]
+    #[msg("Invalid budget or amount")]
     InvalidBudget,
+    #[msg("Invalid winning mint: does not match resolved side")]
+    InvalidWinningMint,
+    #[msg("Insufficient vault balance")]
+    InsufficientVault,
 }

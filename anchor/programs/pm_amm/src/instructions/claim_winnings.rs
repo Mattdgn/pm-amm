@@ -20,7 +20,12 @@ pub struct ClaimWinnings<'info> {
     pub collateral_mint: Account<'info, Mint>,
 
     /// The winning side's mint (YES or NO depending on resolution).
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = winning_mint.key() == market.yes_mint
+            || winning_mint.key() == market.no_mint
+            @ PmAmmError::InvalidWinningMint,
+    )]
     pub winning_mint: Account<'info, Mint>,
 
     #[account(mut)]
@@ -59,7 +64,7 @@ pub fn handler(ctx: Context<ClaimWinnings>, amount: u64) -> Result<()> {
     };
     require!(
         ctx.accounts.winning_mint.key() == expected_mint,
-        PmAmmError::Unauthorized
+        PmAmmError::InvalidWinningMint
     );
 
     // Check user has enough winning tokens
@@ -70,7 +75,7 @@ pub fn handler(ctx: Context<ClaimWinnings>, amount: u64) -> Result<()> {
     // Check vault has enough USDC
     require!(
         ctx.accounts.vault.amount >= amount,
-        PmAmmError::InsufficientLiquidity
+        PmAmmError::InsufficientVault
     );
 
     let market_id_bytes = market.market_id.to_le_bytes();

@@ -59,7 +59,7 @@ pub fn handler(ctx: Context<RedeemPair>, amount: u64) -> Result<()> {
     // Check vault has enough USDC to pay out
     require!(
         ctx.accounts.vault.amount >= amount,
-        PmAmmError::InsufficientLiquidity
+        PmAmmError::InsufficientVault
     );
 
     let market_id_bytes = ctx.accounts.market.market_id.to_le_bytes();

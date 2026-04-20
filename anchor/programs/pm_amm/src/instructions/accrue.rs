@@ -8,7 +8,7 @@ use crate::state::Market;
 #[derive(Accounts)]
 pub struct Accrue<'info> {
     #[account(mut)]
-    pub market: Account<'info, Market>,
+    pub market: Box<Account<'info, Market>>,
 }
 
 pub fn handler(ctx: Context<Accrue>) -> Result<()> {

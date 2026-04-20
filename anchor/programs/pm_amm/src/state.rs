@@ -154,24 +154,6 @@ impl Market {
 }
 
 // ============================================================================
-// Position — PDA seeds: [b"position", market.key(), owner.key()]
-// ============================================================================
-
-#[account]
-pub struct Position {
-    pub owner: Pubkey,
-    pub market: Pubkey,
-    pub yes_tokens: u64,
-    pub no_tokens: u64,
-    pub bump: u8,
-}
-
-impl Position {
-    pub const SEED: &'static [u8] = b"position";
-    pub const LEN: usize = 8 + 32 + 32 + 8 + 8 + 1 + 16;
-}
-
-// ============================================================================
 // LpPosition — PDA seeds: [b"lp", market.key(), owner.key()]
 // ============================================================================
 
