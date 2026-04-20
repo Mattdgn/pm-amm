@@ -92,7 +92,7 @@ export function TradePanel({ market }: { market: MarketData }) {
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .preInstructions(preIxs)
-        .rpc();
+        .rpc({ skipPreflight: true });
 
       setResult(`Bought ${side.toUpperCase()} tokens. Tx: ${tx.slice(0, 8)}...`);
       setAmount("");
