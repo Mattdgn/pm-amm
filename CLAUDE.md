@@ -14,11 +14,11 @@ Deadline : 26 avril 2026.
 ## Commands
 ```bash
 # Depuis la racine (aliases)
-pnpm build          # Build programme + IDL
-pnpm test           # Tests integration (localnet)
-pnpm test:rust      # Tests unitaires Rust
-pnpm dev            # Frontend dev server
-pnpm deploy         # Deploy devnet
+pnpm run build      # Build programme + IDL
+pnpm run test       # Tests integration (localnet)
+pnpm run test:rust  # Tests unitaires Rust
+pnpm run dev        # Frontend dev server
+pnpm run deploy     # Deploy devnet
 
 # Depuis anchor/ (direct)
 cd anchor && anchor build --no-idl -- --tools-version v1.52
