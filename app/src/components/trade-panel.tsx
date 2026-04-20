@@ -55,11 +55,9 @@ export function TradePanel({ market }: { market: MarketData }) {
       const userYes = await getAssociatedTokenAddress(yesMintPda, publicKey);
       const userNo = await getAssociatedTokenAddress(noMintPda, publicKey);
 
-      // Create ATAs if they don't exist
-      const preIxs = [
-        ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }),
-      ];
+      // Step 1: Create missing ATAs in a separate tx (so Phantom simulation works)
       const conn = program.provider.connection;
+      const ataIxs: any[] = [];
       for (const [ata, mint] of [
         [userYes, yesMintPda],
         [userNo, noMintPda],
@@ -67,12 +65,18 @@ export function TradePanel({ market }: { market: MarketData }) {
       ] as [PublicKey, PublicKey][]) {
         const acc = await conn.getAccountInfo(ata);
         if (!acc) {
-          preIxs.push(
+          ataIxs.push(
             createAssociatedTokenAccountInstruction(publicKey, ata, publicKey, mint)
           );
         }
       }
+      if (ataIxs.length > 0) {
+        const { Transaction } = await import("@solana/web3.js");
+        const ataTx = new Transaction().add(...ataIxs);
+        await program.provider.sendAndConfirm!(ataTx);
+      }
 
+      // Step 2: Swap (ATAs now exist, Phantom simulation will pass)
       const direction =
         side === "yes" ? { usdcToYes: {} } : { usdcToNo: {} };
 
@@ -91,8 +95,10 @@ export function TradePanel({ market }: { market: MarketData }) {
           userNo,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
-        .preInstructions(preIxs)
-        .rpc({ skipPreflight: true });
+        .preInstructions([
+          ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }),
+        ])
+        .rpc();
 
       setResult(`Bought ${side.toUpperCase()} tokens. Tx: ${tx.slice(0, 8)}...`);
       setAmount("");
