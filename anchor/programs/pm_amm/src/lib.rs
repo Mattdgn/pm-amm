@@ -46,4 +46,16 @@ pub mod pm_amm {
     ) -> Result<()> {
         instructions::withdraw_liquidity::handler(ctx, shares_to_burn)
     }
+
+    pub fn accrue(ctx: Context<Accrue>) -> Result<()> {
+        instructions::accrue::handler(ctx)
+    }
+
+    pub fn claim_lp_residuals(ctx: Context<ClaimLpResiduals>) -> Result<()> {
+        instructions::claim_lp_residuals::handler(ctx)
+    }
+
+    pub fn redeem_pair(ctx: Context<RedeemPair>, amount: u64) -> Result<()> {
+        instructions::redeem_pair::handler(ctx, amount)
+    }
 }
