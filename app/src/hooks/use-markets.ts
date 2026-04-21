@@ -37,7 +37,8 @@ export function useMarkets() {
     queryKey: ["markets"],
     queryFn: async () => {
       const provider = { connection } as any;
-      const program = new Program(idl as any, provider);
+      const patchedIdl = { ...idl, address: PROGRAM_ID.toBase58() };
+      const program = new Program(patchedIdl as any, provider);
       const accounts = await (program.account as any).market.all();
 
       return accounts.map((acc: any) => {

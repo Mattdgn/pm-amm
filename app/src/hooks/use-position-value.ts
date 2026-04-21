@@ -6,7 +6,7 @@ import { PublicKey, ComputeBudgetProgram, Transaction } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from "@solana/spl-token";
 import { Program, BN } from "@coral-xyz/anchor";
 import idl from "@/lib/pm_amm_idl.json";
-import { USDC_MINT } from "@/lib/constants";
+import { USDC_MINT, PROGRAM_ID } from "@/lib/constants";
 import type { UserTokens } from "@/hooks/use-user-tokens";
 
 export interface PositionValue {
@@ -36,7 +36,7 @@ export function usePositionValue(
       try {
         const market = new PublicKey(marketPda);
         const programId = new PublicKey(idl.address);
-        const program = new Program(idl as any, { connection } as any);
+        const program = new Program({ ...idl, address: PROGRAM_ID.toBase58() } as any, { connection } as any);
 
         const yesMint = PublicKey.findProgramAddressSync(
           [Buffer.from("yes_mint"), market.toBuffer()], programId)[0];

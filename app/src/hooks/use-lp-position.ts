@@ -5,6 +5,7 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { Program } from "@coral-xyz/anchor";
 import idl from "@/lib/pm_amm_idl.json";
+import { PROGRAM_ID } from "@/lib/constants";
 
 const LP_SEED = Buffer.from("lp");
 
@@ -34,7 +35,7 @@ export function useLpPosition(marketPda: string | undefined) {
         [LP_SEED, marketKey.toBuffer(), publicKey.toBuffer()],
         new PublicKey(idl.address)
       );
-      const program = new Program(idl as any, { connection } as any);
+      const program = new Program({ ...idl, address: PROGRAM_ID.toBase58() } as any, { connection } as any);
       try {
         const lp = await (program.account as any).lpPosition.fetch(lpPda);
         return {
