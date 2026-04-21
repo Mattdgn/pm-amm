@@ -53,6 +53,9 @@ pub struct Market {
     pub winning_side: u8, // 0 = unresolved, 1 = Yes, 2 = No
 
     pub bump: u8,
+
+    // Market name (UTF-8, zero-padded)
+    pub name: [u8; 64],
 }
 
 impl Market {
@@ -80,6 +83,7 @@ impl Market {
         + 1  // resolved
         + 1  // winning_side
         + 1  // bump
+        + 64 // name
         + 64; // padding
 
     // --- Q64.64 helpers ---
@@ -130,6 +134,12 @@ impl Market {
 
     pub fn set_total_lp_shares_fixed(&mut self, val: I80F48) {
         self.total_lp_shares = val.to_bits() as u128;
+    }
+
+    /// Return the market name as a UTF-8 string (trailing zeros trimmed).
+    pub fn name_str(&self) -> &str {
+        let len = self.name.iter().position(|&b| b == 0).unwrap_or(self.name.len());
+        core::str::from_utf8(&self.name[..len]).unwrap_or("")
     }
 
     /// L_eff = L_0 * sqrt(T - t). Paper section 8.
@@ -204,6 +214,7 @@ mod tests {
             resolved: false,
             winning_side: 0,
             bump: 0,
+            name: [0u8; 64],
         };
 
         // Test various values round-trip through u128 storage
@@ -251,6 +262,7 @@ mod tests {
             resolved: false,
             winning_side: 0,
             bump: 0,
+            name: [0u8; 64],
         };
 
         assert_eq!(market.get_winning_side(), None);

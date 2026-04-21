@@ -32,4 +32,6 @@ pub enum PmAmmError {
     InvalidWinningMint,
     #[msg("Insufficient vault balance")]
     InsufficientVault,
+    #[msg("Invalid name: must be 1-64 bytes")]
+    InvalidName,
 }

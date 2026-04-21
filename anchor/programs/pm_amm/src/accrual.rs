@@ -233,6 +233,7 @@ mod tests {
             resolved: false,
             winning_side: 0,
             bump: 0,
+            name: [0u8; 64],
         };
 
         market.set_l_zero_fixed(l_zero_fixed);

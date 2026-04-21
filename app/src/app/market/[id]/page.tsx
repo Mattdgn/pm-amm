@@ -43,7 +43,7 @@ export default function MarketPage({
     : undefined;
 
   const { data: tokens } = useUserTokens(yesMint, noMint, USDC_MINT.toBase58());
-  const name = `Market #${id}`;
+  const name = market?.name ?? `Market #${id}`;
 
   return (
     <>

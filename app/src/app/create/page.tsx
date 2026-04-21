@@ -43,11 +43,24 @@ export default function CreateMarketPage() {
       const [vault] = PublicKey.findProgramAddressSync(
         [Buffer.from("vault"), marketPda.toBuffer()], program.programId);
 
+      // Metaplex Token Metadata program
+      const TOKEN_METADATA_PROGRAM = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
+      const [yesMetadata] = PublicKey.findProgramAddressSync(
+        [Buffer.from("metadata"), TOKEN_METADATA_PROGRAM.toBuffer(), yesMint.toBuffer()],
+        TOKEN_METADATA_PROGRAM
+      );
+      const [noMetadata] = PublicKey.findProgramAddressSync(
+        [Buffer.from("metadata"), TOKEN_METADATA_PROGRAM.toBuffer(), noMint.toBuffer()],
+        TOKEN_METADATA_PROGRAM
+      );
+
       const tx1 = await (program.methods as any)
-        .initializeMarket(new BN(marketId), new BN(endTs))
+        .initializeMarket(new BN(marketId), new BN(endTs), name)
         .accounts({
           authority: publicKey, market: marketPda, collateralMint: USDC_MINT,
           yesMint, noMint, vault,
+          yesMetadata, noMetadata,
+          tokenMetadataProgram: TOKEN_METADATA_PROGRAM,
           systemProgram: SystemProgram.programId, tokenProgram: TOKEN_PROGRAM_ID,
           rent: new PublicKey("SysvarRent111111111111111111111111111111111"),
         })

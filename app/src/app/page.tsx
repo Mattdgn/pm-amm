@@ -7,6 +7,8 @@ import { MarketTable } from "@/components/market-table";
 import { MarketDetailPanel } from "@/components/market-detail-panel";
 import { useMarkets } from "@/hooks/use-markets";
 import { useUserPositions } from "@/hooks/use-user-positions";
+import { usePriceRecorder } from "@/hooks/use-price-recorder";
+import { usePriceHistories } from "@/hooks/use-price-histories";
 import { PortfolioPanel } from "@/components/portfolio-panel";
 import { poolValue } from "@/lib/pm-math";
 import Link from "next/link";
@@ -14,6 +16,8 @@ import Link from "next/link";
 export default function Home() {
   const { data: markets, isLoading, error } = useMarkets();
   const { data: userPositions } = useUserPositions(markets);
+  usePriceRecorder(markets);
+  const priceHistories = usePriceHistories(markets);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<SidebarFilter>("all");
   const [sort, setSort] = useState<SidebarSort>("tvl");
@@ -52,7 +56,7 @@ export default function Home() {
   return (
     <>
       <StatusBar />
-      <div className="grid min-h-[calc(100vh-38px)]" style={{ gridTemplateColumns: "220px 1fr 300px" }}>
+      <div className="grid min-h-[calc(100vh-38px)] grid-cols-1 lg:grid-cols-[220px_1fr] xl:grid-cols-[220px_1fr_300px]">
         <Sidebar
           filter={filter}
           sort={sort}
@@ -92,7 +96,15 @@ export default function Home() {
           </div>
 
           {isLoading && (
-            <div className="p-[24px] text-muted font-mono text-[12px]">Loading markets...</div>
+            <div className="flex-1 min-w-0 flex flex-col">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="grid gap-[16px] px-[24px] py-[12px] border-b border-line grid-cols-[48px_1fr_80px_80px_80px_100px_90px_80px]">
+                  {Array.from({ length: 8 }).map((_, j) => (
+                    <div key={j} className="h-[14px] animate-pulse rounded-sm bg-surface border border-line" />
+                  ))}
+                </div>
+              ))}
+            </div>
           )}
           {error && (
             <div className="p-[24px] text-no font-mono text-[12px]">
@@ -100,11 +112,20 @@ export default function Home() {
             </div>
           )}
           {filtered.length > 0 && (
-            <MarketTable markets={filtered} selectedId={selectedId} onSelect={setSelectedId} />
+            <MarketTable markets={filtered} selectedId={selectedId} onSelect={setSelectedId} priceHistories={priceHistories} />
           )}
           {!isLoading && !error && filtered.length === 0 && (
-            <div className="p-[24px] text-muted font-mono text-[12px]">
-              {filter === "positions" ? "No positions found. Trade to open one." : "No markets found."}
+            <div className="flex-1 flex flex-col items-center justify-center gap-[12px] p-[48px]">
+              <div className="text-[11px] text-muted font-mono uppercase tracking-[0.05em]">
+                {filter === "positions"
+                  ? "No positions found"
+                  : "No markets yet"}
+              </div>
+              <Link href="/create">
+                <button className="px-[14px] py-[6px] bg-text-hi text-bg border border-text-hi rounded-sm font-mono text-[11px] tracking-[0.03em] font-medium cursor-pointer">
+                  + CREATE MARKET
+                </button>
+              </Link>
             </div>
           )}
         </main>

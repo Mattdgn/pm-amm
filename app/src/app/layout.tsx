@@ -19,8 +19,16 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "pm/amm — Prediction Market AMM",
-  description: "Paradigm dynamic pm-AMM on Solana",
+  title: "pm-amm — Prediction Markets on Solana",
+  description:
+    "Paradigm pm-AMM: the first production prediction market AMM with uniform LVR and continuous LP yield.",
+  openGraph: {
+    title: "pm-amm — Prediction Markets on Solana",
+    description:
+      "Paradigm pm-AMM: the first production prediction market AMM with uniform LVR and continuous LP yield.",
+    type: "website",
+  },
+  icons: { icon: "/favicon.ico" },
 };
 
 export default function RootLayout({

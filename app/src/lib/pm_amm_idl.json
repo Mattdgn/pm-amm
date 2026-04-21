@@ -1,5 +1,5 @@
 {
-  "address": "GQGSTV9dig5fEwcfMpgqHjo9jAhxtnusMEbx8SrBBYnQ",
+  "address": "",
   "metadata": {
     "name": "pm_amm",
     "version": "0.1.0",
@@ -7,6 +7,261 @@
     "description": "Paradigm dynamic pm-AMM on Solana"
   },
   "instructions": [
+    {
+      "name": "initialize_market",
+      "discriminator": [
+        35,
+        35,
+        189,
+        193,
+        155,
+        48,
+        170,
+        203
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "collateral_mint",
+          "docs": [
+            "The collateral mint (USDC or mock). Must have 6 decimals."
+          ]
+        },
+        {
+          "name": "yes_mint",
+          "writable": true
+        },
+        {
+          "name": "no_mint",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "yes_metadata",
+          "writable": true
+        },
+        {
+          "name": "no_metadata",
+          "writable": true
+        },
+        {
+          "name": "token_metadata_program"
+        },
+        {
+          "name": "system_program"
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "rent"
+        }
+      ],
+      "args": [
+        {
+          "name": "market_id",
+          "type": "u64"
+        },
+        {
+          "name": "end_ts",
+          "type": "i64"
+        },
+        {
+          "name": "name",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "deposit_liquidity",
+      "discriminator": [
+        245,
+        99,
+        59,
+        25,
+        151,
+        71,
+        233,
+        249
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "collateral_mint"
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "user_collateral",
+          "writable": true
+        },
+        {
+          "name": "lp_position",
+          "writable": true
+        },
+        {
+          "name": "system_program"
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "swap",
+      "discriminator": [
+        248,
+        198,
+        158,
+        145,
+        225,
+        117,
+        135,
+        200
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "collateral_mint"
+        },
+        {
+          "name": "yes_mint",
+          "writable": true
+        },
+        {
+          "name": "no_mint",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "user_collateral",
+          "writable": true
+        },
+        {
+          "name": "user_yes",
+          "writable": true
+        },
+        {
+          "name": "user_no",
+          "writable": true
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "direction",
+          "type": {
+            "defined": {
+              "name": "pm_amm::instructions::swap::SwapDirection"
+            }
+          }
+        },
+        {
+          "name": "amount_in",
+          "type": "u64"
+        },
+        {
+          "name": "min_output",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "withdraw_liquidity",
+      "discriminator": [
+        149,
+        158,
+        33,
+        185,
+        47,
+        243,
+        253,
+        31
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "collateral_mint"
+        },
+        {
+          "name": "yes_mint",
+          "writable": true
+        },
+        {
+          "name": "no_mint",
+          "writable": true
+        },
+        {
+          "name": "lp_position",
+          "writable": true
+        },
+        {
+          "name": "user_yes",
+          "writable": true
+        },
+        {
+          "name": "user_no",
+          "writable": true
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "shares_to_burn",
+          "type": "u128"
+        }
+      ]
+    },
     {
       "name": "accrue",
       "discriminator": [
@@ -50,40 +305,15 @@
         },
         {
           "name": "yes_mint",
-          "writable": true,
-          "relations": [
-            "market"
-          ]
+          "writable": true
         },
         {
           "name": "no_mint",
-          "writable": true,
-          "relations": [
-            "market"
-          ]
+          "writable": true
         },
         {
           "name": "lp_position",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  108,
-                  112
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "market"
-              },
-              {
-                "kind": "account",
-                "path": "signer"
-              }
-            ]
-          }
+          "writable": true
         },
         {
           "name": "user_yes",
@@ -94,297 +324,10 @@
           "writable": true
         },
         {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          "name": "token_program"
         }
       ],
       "args": []
-    },
-    {
-      "name": "claim_winnings",
-      "discriminator": [
-        161,
-        215,
-        24,
-        59,
-        14,
-        236,
-        242,
-        221
-      ],
-      "accounts": [
-        {
-          "name": "signer",
-          "signer": true
-        },
-        {
-          "name": "market"
-        },
-        {
-          "name": "collateral_mint",
-          "relations": [
-            "market"
-          ]
-        },
-        {
-          "name": "winning_mint",
-          "docs": [
-            "The winning side's mint (YES or NO depending on resolution)."
-          ],
-          "writable": true
-        },
-        {
-          "name": "vault",
-          "writable": true,
-          "relations": [
-            "market"
-          ]
-        },
-        {
-          "name": "user_winning",
-          "docs": [
-            "User's winning token account."
-          ],
-          "writable": true
-        },
-        {
-          "name": "user_collateral",
-          "docs": [
-            "User's USDC token account."
-          ],
-          "writable": true
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        }
-      ],
-      "args": [
-        {
-          "name": "amount",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "deposit_liquidity",
-      "discriminator": [
-        245,
-        99,
-        59,
-        25,
-        151,
-        71,
-        233,
-        249
-      ],
-      "accounts": [
-        {
-          "name": "signer",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "market",
-          "writable": true
-        },
-        {
-          "name": "collateral_mint",
-          "relations": [
-            "market"
-          ]
-        },
-        {
-          "name": "vault",
-          "writable": true,
-          "relations": [
-            "market"
-          ]
-        },
-        {
-          "name": "user_collateral",
-          "writable": true
-        },
-        {
-          "name": "lp_position",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  108,
-                  112
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "market"
-              },
-              {
-                "kind": "account",
-                "path": "signer"
-              }
-            ]
-          }
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        }
-      ],
-      "args": [
-        {
-          "name": "amount",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "initialize_market",
-      "discriminator": [
-        35,
-        35,
-        189,
-        193,
-        155,
-        48,
-        170,
-        203
-      ],
-      "accounts": [
-        {
-          "name": "authority",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "market",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  109,
-                  97,
-                  114,
-                  107,
-                  101,
-                  116
-                ]
-              },
-              {
-                "kind": "arg",
-                "path": "market_id"
-              }
-            ]
-          }
-        },
-        {
-          "name": "collateral_mint",
-          "docs": [
-            "The collateral mint (USDC or mock). Must have 6 decimals."
-          ]
-        },
-        {
-          "name": "yes_mint",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  121,
-                  101,
-                  115,
-                  95,
-                  109,
-                  105,
-                  110,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "market"
-              }
-            ]
-          }
-        },
-        {
-          "name": "no_mint",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  110,
-                  111,
-                  95,
-                  109,
-                  105,
-                  110,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "market"
-              }
-            ]
-          }
-        },
-        {
-          "name": "vault",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  118,
-                  97,
-                  117,
-                  108,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "market"
-              }
-            ]
-          }
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        },
-        {
-          "name": "rent",
-          "address": "SysvarRent111111111111111111111111111111111"
-        }
-      ],
-      "args": [
-        {
-          "name": "market_id",
-          "type": "u64"
-        },
-        {
-          "name": "end_ts",
-          "type": "i64"
-        }
-      ]
     },
     {
       "name": "redeem_pair",
@@ -408,31 +351,19 @@
           "name": "market"
         },
         {
-          "name": "collateral_mint",
-          "relations": [
-            "market"
-          ]
+          "name": "collateral_mint"
         },
         {
           "name": "yes_mint",
-          "writable": true,
-          "relations": [
-            "market"
-          ]
+          "writable": true
         },
         {
           "name": "no_mint",
-          "writable": true,
-          "relations": [
-            "market"
-          ]
+          "writable": true
         },
         {
           "name": "vault",
-          "writable": true,
-          "relations": [
-            "market"
-          ]
+          "writable": true
         },
         {
           "name": "user_yes",
@@ -447,47 +378,13 @@
           "writable": true
         },
         {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          "name": "token_program"
         }
       ],
       "args": [
         {
           "name": "amount",
           "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "resolve_market",
-      "discriminator": [
-        155,
-        23,
-        80,
-        173,
-        46,
-        74,
-        23,
-        239
-      ],
-      "accounts": [
-        {
-          "name": "signer",
-          "signer": true
-        },
-        {
-          "name": "market",
-          "writable": true
-        }
-      ],
-      "args": [
-        {
-          "name": "winning_side",
-          "type": {
-            "defined": {
-              "name": "Side"
-            }
-          }
         }
       ]
     },
@@ -520,179 +417,101 @@
       ]
     },
     {
-      "name": "swap",
+      "name": "resolve_market",
       "discriminator": [
-        248,
-        198,
-        158,
-        145,
-        225,
-        117,
-        135,
-        200
+        155,
+        23,
+        80,
+        173,
+        46,
+        74,
+        23,
+        239
       ],
       "accounts": [
         {
           "name": "signer",
-          "writable": true,
           "signer": true
         },
         {
           "name": "market",
           "writable": true
-        },
-        {
-          "name": "collateral_mint",
-          "relations": [
-            "market"
-          ]
-        },
-        {
-          "name": "yes_mint",
-          "writable": true,
-          "relations": [
-            "market"
-          ]
-        },
-        {
-          "name": "no_mint",
-          "writable": true,
-          "relations": [
-            "market"
-          ]
-        },
-        {
-          "name": "vault",
-          "writable": true,
-          "relations": [
-            "market"
-          ]
-        },
-        {
-          "name": "user_collateral",
-          "writable": true
-        },
-        {
-          "name": "user_yes",
-          "writable": true
-        },
-        {
-          "name": "user_no",
-          "writable": true
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
       ],
       "args": [
         {
-          "name": "direction",
+          "name": "winning_side",
           "type": {
             "defined": {
-              "name": "SwapDirection"
+              "name": "pm_amm::state::Side"
             }
           }
-        },
-        {
-          "name": "amount_in",
-          "type": "u64"
-        },
-        {
-          "name": "min_output",
-          "type": "u64"
         }
       ]
     },
     {
-      "name": "withdraw_liquidity",
+      "name": "claim_winnings",
       "discriminator": [
-        149,
-        158,
-        33,
-        185,
-        47,
-        243,
-        253,
-        31
+        161,
+        215,
+        24,
+        59,
+        14,
+        236,
+        242,
+        221
       ],
       "accounts": [
         {
           "name": "signer",
-          "writable": true,
           "signer": true
         },
         {
-          "name": "market",
+          "name": "market"
+        },
+        {
+          "name": "collateral_mint"
+        },
+        {
+          "name": "winning_mint",
+          "docs": [
+            "The winning side's mint (YES or NO depending on resolution)."
+          ],
           "writable": true
         },
         {
-          "name": "collateral_mint",
-          "relations": [
-            "market"
-          ]
-        },
-        {
-          "name": "yes_mint",
-          "writable": true,
-          "relations": [
-            "market"
-          ]
-        },
-        {
-          "name": "no_mint",
-          "writable": true,
-          "relations": [
-            "market"
-          ]
-        },
-        {
-          "name": "lp_position",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  108,
-                  112
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "market"
-              },
-              {
-                "kind": "account",
-                "path": "signer"
-              }
-            ]
-          }
-        },
-        {
-          "name": "user_yes",
+          "name": "vault",
           "writable": true
         },
         {
-          "name": "user_no",
+          "name": "user_winning",
+          "docs": [
+            "User's winning token account."
+          ],
           "writable": true
         },
         {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          "name": "user_collateral",
+          "docs": [
+            "User's USDC token account."
+          ],
+          "writable": true
+        },
+        {
+          "name": "token_program"
         }
       ],
       "args": [
         {
-          "name": "shares_to_burn",
-          "type": "u128"
+          "name": "amount",
+          "type": "u64"
         }
       ]
     }
   ],
   "accounts": [
     {
-      "name": "LpPosition",
+      "name": "pm_amm::state::LpPosition",
       "discriminator": [
         105,
         241,
@@ -705,7 +524,7 @@
       ]
     },
     {
-      "name": "Market",
+      "name": "pm_amm::state::Market",
       "discriminator": [
         219,
         190,
@@ -718,128 +537,35 @@
       ]
     }
   ],
-  "events": [
-    {
-      "name": "LZeroSuggestion",
-      "discriminator": [
-        177,
-        83,
-        48,
-        170,
-        82,
-        64,
-        221,
-        54
-      ]
-    }
-  ],
-  "errors": [
-    {
-      "code": 6000,
-      "name": "MarketAlreadyResolved",
-      "msg": "Market already resolved"
-    },
-    {
-      "code": 6001,
-      "name": "MarketNotResolved",
-      "msg": "Market not yet resolved"
-    },
-    {
-      "code": 6002,
-      "name": "MarketExpired",
-      "msg": "Market has expired"
-    },
-    {
-      "code": 6003,
-      "name": "MarketNotExpired",
-      "msg": "Market has not expired yet"
-    },
-    {
-      "code": 6004,
-      "name": "InsufficientLiquidity",
-      "msg": "Insufficient liquidity or balance"
-    },
-    {
-      "code": 6005,
-      "name": "SlippageExceeded",
-      "msg": "Slippage tolerance exceeded"
-    },
-    {
-      "code": 6006,
-      "name": "Unauthorized",
-      "msg": "Unauthorized"
-    },
-    {
-      "code": 6007,
-      "name": "InvalidPrice",
-      "msg": "Invalid price: must be in (0, 1)"
-    },
-    {
-      "code": 6008,
-      "name": "MathOverflow",
-      "msg": "Math overflow"
-    },
-    {
-      "code": 6009,
-      "name": "NoResidualsToClaim",
-      "msg": "No residuals to claim"
-    },
-    {
-      "code": 6010,
-      "name": "InvalidDuration",
-      "msg": "Invalid duration"
-    },
-    {
-      "code": 6011,
-      "name": "InvalidBudget",
-      "msg": "Invalid budget or amount"
-    },
-    {
-      "code": 6012,
-      "name": "InvalidWinningMint",
-      "msg": "Invalid winning mint: does not match resolved side"
-    },
-    {
-      "code": 6013,
-      "name": "InsufficientVault",
-      "msg": "Insufficient vault balance"
-    }
-  ],
   "types": [
     {
-      "name": "LZeroSuggestion",
+      "name": "pm_amm::instructions::swap::SwapDirection",
       "type": {
-        "kind": "struct",
-        "fields": [
+        "kind": "enum",
+        "variants": [
           {
-            "name": "market",
-            "type": "pubkey"
+            "name": "UsdcToYes"
           },
           {
-            "name": "suggested_l_zero",
-            "type": "u128"
+            "name": "UsdcToNo"
           },
           {
-            "name": "estimated_pool_value",
-            "type": "u64"
+            "name": "YesToUsdc"
           },
           {
-            "name": "estimated_daily_lvr",
-            "type": "u64"
+            "name": "NoToUsdc"
           },
           {
-            "name": "warning_high_sigma",
-            "type": "bool"
+            "name": "YesToNo"
           },
           {
-            "name": "warning_short_duration",
-            "type": "bool"
+            "name": "NoToYes"
           }
         ]
       }
     },
     {
-      "name": "LpPosition",
+      "name": "pm_amm::state::LpPosition",
       "type": {
         "kind": "struct",
         "fields": [
@@ -875,7 +601,7 @@
       }
     },
     {
-      "name": "Market",
+      "name": "pm_amm::state::Market",
       "type": {
         "kind": "struct",
         "fields": [
@@ -958,12 +684,21 @@
           {
             "name": "bump",
             "type": "u8"
+          },
+          {
+            "name": "name",
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
           }
         ]
       }
     },
     {
-      "name": "Side",
+      "name": "pm_amm::state::Side",
       "type": {
         "kind": "enum",
         "variants": [
@@ -972,32 +707,6 @@
           },
           {
             "name": "No"
-          }
-        ]
-      }
-    },
-    {
-      "name": "SwapDirection",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "UsdcToYes"
-          },
-          {
-            "name": "UsdcToNo"
-          },
-          {
-            "name": "YesToUsdc"
-          },
-          {
-            "name": "NoToUsdc"
-          },
-          {
-            "name": "YesToNo"
-          },
-          {
-            "name": "NoToYes"
           }
         ]
       }

@@ -3,7 +3,12 @@
 //! All derived deterministically — no random keypairs needed.
 
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::program::invoke_signed;
 use anchor_spl::token::{Mint, Token, TokenAccount};
+use mpl_token_metadata::instructions::{
+    CreateMetadataAccountV3, CreateMetadataAccountV3InstructionArgs,
+};
+use mpl_token_metadata::types::DataV2;
 
 use crate::errors::PmAmmError;
 use crate::state::Market;
@@ -61,24 +66,34 @@ pub struct InitializeMarket<'info> {
     )]
     pub vault: Account<'info, TokenAccount>,
 
+    /// CHECK: Created via CPI to Metaplex Token Metadata program.
+    #[account(mut)]
+    pub yes_metadata: UncheckedAccount<'info>,
+
+    /// CHECK: Created via CPI to Metaplex Token Metadata program.
+    #[account(mut)]
+    pub no_metadata: UncheckedAccount<'info>,
+
+    /// CHECK: Metaplex Token Metadata program.
+    #[account(address = mpl_token_metadata::ID)]
+    pub token_metadata_program: UncheckedAccount<'info>,
+
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub rent: Sysvar<'info, Rent>,
 }
 
-pub fn handler(
-    ctx: Context<InitializeMarket>,
+pub fn handler<'info>(
+    ctx: Context<'_, '_, 'info, 'info, InitializeMarket<'info>>,
     market_id: u64,
     end_ts: i64,
+    name: String,
 ) -> Result<()> {
     let clock = Clock::get()?;
     let now = clock.unix_timestamp;
 
-    // Must be at least 1 hour in the future
-    require!(
-        end_ts > now + 3600,
-        PmAmmError::InvalidDuration
-    );
+    require!(end_ts > now + 3600, PmAmmError::InvalidDuration);
+    require!(!name.is_empty() && name.len() <= 64, PmAmmError::InvalidName);
 
     let market = &mut ctx.accounts.market;
 
@@ -88,9 +103,14 @@ pub fn handler(
     market.yes_mint = ctx.accounts.yes_mint.key();
     market.no_mint = ctx.accounts.no_mint.key();
     market.vault = ctx.accounts.vault.key();
-
     market.start_ts = now;
     market.end_ts = end_ts;
+
+    // Name (zero-padded)
+    let mut name_bytes = [0u8; 64];
+    let src = name.as_bytes();
+    name_bytes[..src.len()].copy_from_slice(src);
+    market.name = name_bytes;
 
     // AMM starts empty — deposit will bootstrap L_0
     market.l_zero = 0;
@@ -111,9 +131,90 @@ pub fn handler(
 
     // Resolution
     market.resolved = false;
-    market.winning_side = 0; // unresolved
+    market.winning_side = 0;
 
     market.bump = ctx.bumps.market;
+
+    // Signer seeds for Market PDA (mint authority)
+    let id_bytes = market_id.to_le_bytes();
+    let bump = ctx.bumps.market;
+    let signer_seeds: &[&[u8]] = &[Market::SEED, &id_bytes, &[bump]];
+
+    // Create Metaplex metadata for YES mint
+    let yes_name = truncate_str(&format!("YES — {}", name), 32);
+    create_token_metadata(
+        ctx.accounts.yes_metadata.to_account_info(),
+        ctx.accounts.yes_mint.to_account_info(),
+        ctx.accounts.market.to_account_info(),
+        ctx.accounts.authority.to_account_info(),
+        ctx.accounts.system_program.to_account_info(),
+        ctx.accounts.rent.to_account_info(),
+        yes_name,
+        "YES".to_string(),
+        signer_seeds,
+    )?;
+
+    // Create Metaplex metadata for NO mint
+    let no_name = truncate_str(&format!("NO — {}", name), 32);
+    create_token_metadata(
+        ctx.accounts.no_metadata.to_account_info(),
+        ctx.accounts.no_mint.to_account_info(),
+        ctx.accounts.market.to_account_info(),
+        ctx.accounts.authority.to_account_info(),
+        ctx.accounts.system_program.to_account_info(),
+        ctx.accounts.rent.to_account_info(),
+        no_name,
+        "NO".to_string(),
+        signer_seeds,
+    )?;
+
+    Ok(())
+}
+
+fn truncate_str(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len { s.to_string() } else { s[..max_len].to_string() }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn create_token_metadata<'info>(
+    metadata_ai: AccountInfo<'info>,
+    mint_ai: AccountInfo<'info>,
+    authority_ai: AccountInfo<'info>,
+    payer_ai: AccountInfo<'info>,
+    system_ai: AccountInfo<'info>,
+    rent_ai: AccountInfo<'info>,
+    token_name: String,
+    symbol: String,
+    signer_seeds: &[&[u8]],
+) -> Result<()> {
+    let ix = CreateMetadataAccountV3 {
+        metadata: metadata_ai.key(),
+        mint: mint_ai.key(),
+        mint_authority: authority_ai.key(),
+        payer: payer_ai.key(),
+        update_authority: (authority_ai.key(), true),
+        system_program: system_ai.key(),
+        rent: Some(rent_ai.key()),
+    }
+    .instruction(CreateMetadataAccountV3InstructionArgs {
+        data: DataV2 {
+            name: token_name,
+            symbol,
+            uri: String::new(),
+            seller_fee_basis_points: 0,
+            creators: None,
+            collection: None,
+            uses: None,
+        },
+        is_mutable: true,
+        collection_details: None,
+    });
+
+    invoke_signed(
+        &ix,
+        &[metadata_ai, mint_ai, authority_ai.clone(), payer_ai, system_ai, rent_ai],
+        &[signer_seeds],
+    )?;
 
     Ok(())
 }

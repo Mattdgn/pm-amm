@@ -16,12 +16,13 @@ declare_id!("GQGSTV9dig5fEwcfMpgqHjo9jAhxtnusMEbx8SrBBYnQ");
 pub mod pm_amm {
     use super::*;
 
-    pub fn initialize_market(
-        ctx: Context<InitializeMarket>,
+    pub fn initialize_market<'info>(
+        ctx: Context<'_, '_, 'info, 'info, InitializeMarket<'info>>,
         market_id: u64,
         end_ts: i64,
+        name: String,
     ) -> Result<()> {
-        instructions::initialize_market::handler(ctx, market_id, end_ts)
+        instructions::initialize_market::handler(ctx, market_id, end_ts, name)
     }
 
     pub fn deposit_liquidity(

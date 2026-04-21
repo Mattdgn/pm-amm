@@ -38,11 +38,12 @@ interface MarketTableProps {
   markets: MarketData[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  priceHistories?: Map<string, number[]>;
 }
 
-export function MarketTable({ markets, selectedId, onSelect }: MarketTableProps) {
+export function MarketTable({ markets, selectedId, onSelect, priceHistories }: MarketTableProps) {
   return (
-    <div className="flex-1 min-w-0 flex flex-col">
+    <div className="flex-1 min-w-0 flex flex-col overflow-x-auto">
       {/* Header */}
       <div
         className={[
@@ -90,7 +91,7 @@ export function MarketTable({ markets, selectedId, onSelect }: MarketTableProps)
             )}
             <div className="text-muted text-[11px]">#{m.marketId}</div>
             <div className="flex items-center gap-[8px] min-w-0 font-sans text-[13px] text-text-hi tracking-[-0.005em]">
-              <span className="truncate">Market #{m.marketId}</span>
+              <span className="truncate">{m.name}</span>
               <span className="text-[10px] text-muted font-mono shrink-0">
                 {truncateKey(m.publicKey)}
               </span>
@@ -103,7 +104,7 @@ export function MarketTable({ markets, selectedId, onSelect }: MarketTableProps)
             </div>
             <div>
               <Sparkline
-                points={marketSparkline(m.marketId, m.price)}
+                points={priceHistories?.get(m.publicKey) ?? marketSparkline(m.marketId, m.price)}
                 color={m.price >= 0.5 ? "var(--yes)" : "var(--no)"}
                 width={64}
                 height={18}

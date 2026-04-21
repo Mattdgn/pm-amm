@@ -23,7 +23,7 @@
 
 ## Pending
 
-(none)
+- [ ] Sprint 15 — V1 Shippable : Admin, Metadata, Charts, Polish (14h)
 
 **Total estime : 55h**
 **Deadline : 26 avril 2026**

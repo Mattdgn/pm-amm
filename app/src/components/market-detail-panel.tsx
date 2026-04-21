@@ -49,7 +49,7 @@ export function MarketDetailPanel({ market }: MarketDetailPanelProps) {
         #{market.marketId} · {truncateKey(market.publicKey)}
       </div>
       <div className="font-sans text-[17px] text-text-hi tracking-[-0.015em] leading-[1.3] mb-[16px]">
-        Market #{market.marketId}
+        {market.name}
       </div>
 
       {/* Price boxes */}

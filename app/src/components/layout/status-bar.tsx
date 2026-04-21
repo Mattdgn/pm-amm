@@ -1,6 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { Wordmark } from "@/components/ui/wordmark";
 import { useMarkets } from "@/hooks/use-markets";
 import { formatUsdc, poolValue } from "@/lib/pm-math";
@@ -25,6 +27,7 @@ function Stat({ label, value, delta }: { label: string; value: string; delta?: s
 }
 
 export function StatusBar() {
+  const { publicKey } = useWallet();
   const { data: markets } = useMarkets();
 
   const activeCount = markets?.filter((m) => !m.resolved).length ?? 0;
@@ -59,6 +62,14 @@ export function StatusBar() {
           <span className="w-[6px] h-[6px] rounded-full bg-yes animate-[blink_1.4s_infinite]" />
           LIVE
         </span>
+        {publicKey && (
+          <Link
+            href="/admin"
+            className="text-muted hover:text-text-hi transition-all duration-[120ms]"
+          >
+            ADMIN
+          </Link>
+        )}
         <WalletMultiButton />
       </div>
     </div>

@@ -11,6 +11,7 @@ export interface MarketData {
   publicKey: string;
   marketId: number;
   authority: string;
+  name: string;
   startTs: number;
   endTs: number;
   lZero: number;
@@ -51,10 +52,18 @@ export function useMarkets() {
           ? priceFromReserves(x, y, lEff)
           : 0.5;
 
+        // Decode name: [u8; 64] → trim trailing zeros → UTF-8 string
+        const nameBytes: number[] = m.name ?? [];
+        const end = nameBytes.indexOf(0);
+        const nameStr = new TextDecoder().decode(
+          new Uint8Array(end >= 0 ? nameBytes.slice(0, end) : nameBytes)
+        );
+
         return {
           publicKey: acc.publicKey.toBase58(),
           marketId: m.marketId.toNumber(),
           authority: m.authority.toBase58(),
+          name: nameStr || `Market #${m.marketId.toNumber()}`,
           startTs: m.startTs.toNumber(),
           endTs: m.endTs.toNumber(),
           lZero,
