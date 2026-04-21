@@ -15,7 +15,6 @@ export function useProgram() {
     const provider = new AnchorProvider(connection, wallet as any, {
       commitment: "confirmed",
     });
-    const patchedIdl = { ...idl, address: PROGRAM_ID.toBase58() };
-    return new Program(patchedIdl as any, provider);
+    return new Program(idl as any, provider);
   }, [connection, wallet]);
 }

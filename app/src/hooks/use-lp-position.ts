@@ -35,7 +35,7 @@ export function useLpPosition(marketPda: string | undefined) {
         [LP_SEED, marketKey.toBuffer(), publicKey.toBuffer()],
         new PublicKey(idl.address)
       );
-      const program = new Program({ ...idl, address: PROGRAM_ID.toBase58() } as any, { connection } as any);
+      const program = new Program(idl as any, { connection } as any);
       try {
         const lp = await (program.account as any).lpPosition.fetch(lpPda);
         return {

@@ -1,5 +1,5 @@
 {
-  "address": "",
+  "address": "GQGSTV9dig5fEwcfMpgqHjo9jAhxtnusMEbx8SrBBYnQ",
   "metadata": {
     "name": "pm_amm",
     "version": "0.1.0",
@@ -192,7 +192,7 @@
           "name": "direction",
           "type": {
             "defined": {
-              "name": "pm_amm::instructions::swap::SwapDirection"
+              "name": "SwapDirection"
             }
           }
         },
@@ -443,7 +443,7 @@
           "name": "winning_side",
           "type": {
             "defined": {
-              "name": "pm_amm::state::Side"
+              "name": "Side"
             }
           }
         }
@@ -511,7 +511,7 @@
   ],
   "accounts": [
     {
-      "name": "pm_amm::state::LpPosition",
+      "name": "LpPosition",
       "discriminator": [
         105,
         241,
@@ -524,7 +524,7 @@
       ]
     },
     {
-      "name": "pm_amm::state::Market",
+      "name": "Market",
       "discriminator": [
         219,
         190,
@@ -539,7 +539,7 @@
   ],
   "types": [
     {
-      "name": "pm_amm::instructions::swap::SwapDirection",
+      "name": "SwapDirection",
       "type": {
         "kind": "enum",
         "variants": [
@@ -565,7 +565,7 @@
       }
     },
     {
-      "name": "pm_amm::state::LpPosition",
+      "name": "LpPosition",
       "type": {
         "kind": "struct",
         "fields": [
@@ -601,7 +601,7 @@
       }
     },
     {
-      "name": "pm_amm::state::Market",
+      "name": "Market",
       "type": {
         "kind": "struct",
         "fields": [
@@ -698,7 +698,7 @@
       }
     },
     {
-      "name": "pm_amm::state::Side",
+      "name": "Side",
       "type": {
         "kind": "enum",
         "variants": [

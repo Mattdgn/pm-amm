@@ -36,7 +36,7 @@ export function usePositionValue(
       try {
         const market = new PublicKey(marketPda);
         const programId = new PublicKey(idl.address);
-        const program = new Program({ ...idl, address: PROGRAM_ID.toBase58() } as any, { connection } as any);
+        const program = new Program(idl as any, { connection } as any);
 
         const yesMint = PublicKey.findProgramAddressSync(
           [Buffer.from("yes_mint"), market.toBuffer()], programId)[0];
