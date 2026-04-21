@@ -17,13 +17,15 @@
 - [x] Sprint 13 — Polish + README + demo (2026-04-20)
 - [x] Sprint 14 — Brand System & UI Refactor (2026-04-20)
 
+- [x] Sprint 15 — V1 Shippable : Admin, Metadata, Charts, Polish (2026-04-22)
+
 ## In Progress
 
 (aucun)
 
 ## Pending
 
-- [ ] Sprint 15 — V1 Shippable : Admin, Metadata, Charts, Polish (14h)
+(none)
 
 **Total estime : 55h**
 **Deadline : 26 avril 2026**
@@ -105,7 +107,33 @@ Sprint 1 ─┬─→ Sprint 2 ──┬─→ Sprint 4 ──→ Sprint 5 ─�
 - Sparkline data is currently deterministic seed — needs real on-chain price history later
 - Sidebar filters (My positions, Watchlist) are stubs — need user token data
 
+## Metrics — Sprint 15
+- Files changed: 31
+- Lines: +1351 / -659
+- New files: 11 (admin page, API routes, hooks, components, sprint doc)
+- New routes: /admin, /api/price-snap, /api/price-history
+- Tests: 49 Rust pass (0 new, all existing pass)
+- Type errors: 0
+- Console.log: 0
+
+## Retro — Sprint 15
+### Smooth
+- Metaplex CPI via invoke_signed worked cleanly with Market PDA as signer
+- IDL rebuild picked up name field + metadata accounts correctly
+- Upstash Redis client is trivially simple to integrate
+### Friction
+- `anchor idl build` broke after `cargo clean` — had to extract IDL from test output manually
+- Lifetime annotations on handler required `Context<'_, '_, 'info, 'info, ...>` pattern for CPI
+### Watch
+- Program must be redeployed to devnet (Market struct changed, existing markets invalidated)
+- Metaplex metadata program ID hardcoded in create page — could be extracted to constants
+- Redis is optional — sparklines fall back to deterministic seed without env vars
+
 ## Decisions
+- Sprint 15: Market name stored as [u8; 64] directly in Market account (not separate PDA)
+- Sprint 15: Metaplex Token Metadata v3 via mpl-token-metadata v5 crate
+- Sprint 15: Upstash Redis for price history (graceful fallback if not configured)
+- Sprint 15: IDL extracted via cargo test output (anchor idl build flaky)
 - Sprint 14: Replaced Geist fonts with Inter Tight + JetBrains Mono per brand system
 - Sprint 14: Removed shadcn card/tabs/input — replaced with brand-native components
 - Sprint 14: Home page changed from card grid to trading terminal (table + sidebar + detail panel)
