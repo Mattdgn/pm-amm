@@ -39,7 +39,10 @@ export function useMarkets() {
       const provider = { connection } as any;
       const patchedIdl = { ...idl, address: PROGRAM_ID.toBase58() };
       const program = new Program(patchedIdl as any, provider);
-      const accounts = await (program.account as any).market.all();
+      // Filter by new Market account size (459 bytes) to skip old-layout accounts
+      const accounts = await (program.account as any).market.all([
+        { dataSize: 459 },
+      ]);
 
       return accounts.map((acc: any) => {
         const m = acc.account;
