@@ -221,7 +221,13 @@ export function TradePanel({
           {quoteLoading ? (
             <p className="text-muted text-[12px] font-mono">Fetching quote...</p>
           ) : quote?.error ? (
-            <p className="text-no text-[11px] font-mono">{quote.error}</p>
+            <p className="text-no text-[11px] font-mono">
+              {quote.error.includes("ProgramFailedToComplete")
+                ? "Amount too large for this pool"
+                : quote.error.includes("Custom")
+                  ? "Insufficient balance"
+                  : quote.error}
+            </p>
           ) : quote?.output ? (
             <>
               <MetaRow label="You receive" value={`${outputDisplay} ${outputUnit}`} />
