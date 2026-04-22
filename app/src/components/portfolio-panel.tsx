@@ -33,7 +33,7 @@ function useUsdcBalance() {
   });
 }
 
-function MarketPosition({ market }: { market: { publicKey: string; marketId: number; price: number; resolved: boolean; winningSide: number } }) {
+function MarketPosition({ market }: { market: { publicKey: string; marketId: number; name: string; price: number; resolved: boolean; winningSide: number } }) {
   const marketPda = new PublicKey(market.publicKey);
   const yesMint = PublicKey.findProgramAddressSync(
     [Buffer.from("yes_mint"), marketPda.toBuffer()], PROGRAM_ID
@@ -55,7 +55,7 @@ function MarketPosition({ market }: { market: { publicKey: string; marketId: num
   return (
     <div className="border-b border-line py-[12px]">
       <div className="flex justify-between items-baseline mb-[6px]">
-        <span className="font-sans text-[13px] text-text-hi">Market #{market.marketId}</span>
+        <span className="font-sans text-[13px] text-text-hi truncate mr-[8px]">{market.name}</span>
         <span className="text-[11px] tnum text-text-dim">~{formatUsdc(estValue)} USDC</span>
       </div>
       <div className="flex gap-[16px] text-[11px]">
