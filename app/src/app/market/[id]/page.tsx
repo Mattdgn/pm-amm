@@ -7,6 +7,7 @@ import { LpPanel } from "@/components/lp-panel";
 import { ResidualsWidget } from "@/components/residuals-widget";
 import { PositionCard } from "@/components/position-card";
 import { MarketProjections } from "@/components/market-projections";
+import { PriceChart } from "@/components/price-chart";
 import { Figure } from "@/components/ui/figure";
 import { ProbabilityBar } from "@/components/ui/probability-bar";
 import { MetaRow } from "@/components/ui/meta-row";
@@ -89,6 +90,9 @@ export default function MarketPage({
               </div>
               <ProbabilityBar yesPercent={market.price * 100} />
             </div>
+
+            {/* Price chart */}
+            <PriceChart marketId={market.publicKey} currentPrice={market.price} />
 
             {/* Meta */}
             <div className="max-w-md">

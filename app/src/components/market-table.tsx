@@ -50,10 +50,9 @@ export function MarketTable({ markets, selectedId, onSelect, priceHistories }: M
           "grid gap-[16px] px-[24px] py-[10px]",
           "border-b border-line",
           "font-mono text-[10px] text-muted uppercase tracking-[0.08em]",
-          "grid-cols-[48px_1fr_80px_80px_80px_100px_90px_80px]",
+          "grid-cols-[1fr_72px_72px_80px_100px_80px_72px]",
         ].join(" ")}
       >
-        <div>ID</div>
         <div>MARKET</div>
         <div className="text-right">YES</div>
         <div className="text-right">NO</div>
@@ -83,18 +82,14 @@ export function MarketTable({ markets, selectedId, onSelect, priceHistories }: M
               "h-[var(--row)]",
               isSelected ? "bg-surface" : "hover:bg-surface",
               isResolved ? "opacity-55 hover:opacity-100" : "",
-              "grid-cols-[48px_1fr_80px_80px_80px_100px_90px_80px]",
+              "grid-cols-[1fr_72px_72px_80px_100px_80px_72px]",
             ].join(" ")}
           >
             {isSelected && (
               <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-accent" />
             )}
-            <div className="text-muted text-[11px]">#{m.marketId}</div>
-            <div className="flex items-center gap-[8px] min-w-0 font-sans text-[13px] text-text-hi tracking-[-0.005em]">
-              <span className="truncate">{m.name}</span>
-              <span className="text-[10px] text-muted font-mono shrink-0">
-                {truncateKey(m.publicKey)}
-              </span>
+            <div className="min-w-0 font-sans text-[13px] text-text-hi tracking-[-0.005em] truncate">
+              {m.name}
             </div>
             <div className="text-right text-yes tnum text-[13px] tracking-[-0.01em]">
               {m.price.toFixed(4)}
