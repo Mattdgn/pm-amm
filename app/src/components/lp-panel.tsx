@@ -10,7 +10,12 @@ import { useLpPosition } from "@/hooks/use-lp-position";
 import { formatUsdc } from "@/lib/pm-math";
 import type { MarketData } from "@/hooks/use-markets";
 import { PublicKey, ComputeBudgetProgram, SystemProgram } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from "@solana/spl-token";
+import {
+  TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddress,
+  createAssociatedTokenAccountInstruction,
+  getAccount,
+} from "@solana/spl-token";
 import { USDC_MINT, solscanTxUrl } from "@/lib/constants";
 import { BN } from "@coral-xyz/anchor";
 import { toast } from "sonner";
@@ -72,6 +77,16 @@ export function LpPanel({ market }: { market: MarketData }) {
         [Buffer.from("lp"), marketPda.toBuffer(), publicKey.toBuffer()],
         program.programId
       );
+
+      // Ensure YES/NO ATAs exist (may have been closed after a sell)
+      const conn = program.provider.connection;
+      const preIxs: any[] = [ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })];
+      for (const [ata, mint] of [[userYes, yesMint], [userNo, noMint]] as [PublicKey, PublicKey][]) {
+        try { await getAccount(conn, ata); } catch {
+          preIxs.push(createAssociatedTokenAccountInstruction(publicKey, ata, publicKey, mint));
+        }
+      }
+
       const sharesBn = new BN((BigInt(Math.floor(lp.shares * 2 ** 48))).toString());
       const tx = await (program.methods as any)
         .withdrawLiquidity(sharesBn)
@@ -80,7 +95,7 @@ export function LpPanel({ market }: { market: MarketData }) {
           yesMint, noMint, lpPosition: lpPda, userYes, userNo,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
-        .preInstructions([ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })])
+        .preInstructions(preIxs)
         .rpc();
       toast.success("Withdrew all liquidity", {
         action: { label: "Solscan ↗", onClick: () => window.open(solscanTxUrl(tx), "_blank") },
