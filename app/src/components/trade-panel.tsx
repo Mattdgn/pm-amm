@@ -64,18 +64,15 @@ export function TradePanel({
       const userYes = await getAssociatedTokenAddress(yesMintPda, publicKey);
       const userNo = await getAssociatedTokenAddress(noMintPda, publicKey);
 
+      // Build ATA creation instructions (if needed) to bundle atomically
       const conn = program.provider.connection;
-      const ataIxs: any[] = [];
+      const preIxs: any[] = [ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })];
       for (const [ata, mint] of [
         [userYes, yesMintPda], [userNo, noMintPda], [userUsdc, USDC_MINT],
       ] as [PublicKey, PublicKey][]) {
         try { await getAccount(conn, ata); } catch {
-          ataIxs.push(createAssociatedTokenAccountInstruction(publicKey, ata, publicKey, mint));
+          preIxs.push(createAssociatedTokenAccountInstruction(publicKey, ata, publicKey, mint));
         }
-      }
-      if (ataIxs.length > 0) {
-        const { Transaction } = await import("@solana/web3.js");
-        await program.provider.sendAndConfirm!(new Transaction().add(...ataIxs));
       }
 
       const direction = mode === "buy"
@@ -83,9 +80,7 @@ export function TradePanel({
         : (side === "yes" ? { yesToUsdc: {} } : { noToUsdc: {} });
 
       const BN = (await import("@coral-xyz/anchor")).BN;
-      const lamports = mode === "buy"
-        ? Math.floor(amountNum * 1e6)
-        : Math.floor(amountNum * 1e6);
+      const lamports = Math.floor(amountNum * 1e6);
 
       const tx = await (program.methods as any)
         .swap(direction, new BN(lamports), new BN(minOutput))
@@ -95,7 +90,7 @@ export function TradePanel({
           userCollateral: userUsdc, userYes, userNo,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
-        .preInstructions([ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })])
+        .preInstructions(preIxs)
         .rpc();
 
       const desc = mode === "buy"

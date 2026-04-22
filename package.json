@@ -6,7 +6,8 @@
     "test": "cd anchor && anchor test",
     "test:rust": "cd anchor && cargo test --package pm_amm",
     "dev": "cd app && pnpm dev",
-    "deploy": "cd anchor && anchor deploy --provider.cluster devnet"
+    "deploy": "cd anchor && anchor deploy --provider.cluster devnet",
+    "musdc": "cd anchor && ANCHOR_PROVIDER_URL=https://api.devnet.solana.com ANCHOR_WALLET=~/.config/solana/id.json pnpm exec ts-node --transpile-only -P ./tsconfig.json scripts/mint-usdc.ts"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.2.2",

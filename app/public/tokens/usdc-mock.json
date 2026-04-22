@@ -1,5 +1,5 @@
 {
-  "name": "USDC Mock — pm-AMM",
+  "name": "mUSDC pmAMM",
   "symbol": "mUSDC",
   "description": "Mock USDC collateral token for pm-AMM prediction markets (devnet only)",
   "image": "https://raw.githubusercontent.com/Mattdgn/pm-amm/main/app/public/tokens/usdc.png"

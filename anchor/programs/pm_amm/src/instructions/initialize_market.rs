@@ -143,8 +143,8 @@ pub fn handler<'info>(
     const YES_URI: &str = "https://raw.githubusercontent.com/Mattdgn/pm-amm/main/app/public/tokens/yes.json";
     const NO_URI: &str = "https://raw.githubusercontent.com/Mattdgn/pm-amm/main/app/public/tokens/no.json";
 
-    // Create Metaplex metadata for YES mint
-    let yes_name = truncate_str(&format!("YES — {}", name), 32);
+    // Create Metaplex metadata for YES mint (32 bytes max on-chain)
+    let yes_name = truncate_str(&format!("YES - {}", name), 32);
     create_token_metadata(
         ctx.accounts.yes_metadata.to_account_info(),
         ctx.accounts.yes_mint.to_account_info(),
@@ -158,8 +158,8 @@ pub fn handler<'info>(
         signer_seeds,
     )?;
 
-    // Create Metaplex metadata for NO mint
-    let no_name = truncate_str(&format!("NO — {}", name), 32);
+    // Create Metaplex metadata for NO mint (32 bytes max on-chain)
+    let no_name = truncate_str(&format!("NO - {}", name), 32);
     create_token_metadata(
         ctx.accounts.no_metadata.to_account_info(),
         ctx.accounts.no_mint.to_account_info(),
