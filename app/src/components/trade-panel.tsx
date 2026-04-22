@@ -15,6 +15,7 @@ import {
   TOKEN_PROGRAM_ID,
   getAssociatedTokenAddress,
   createAssociatedTokenAccountInstruction,
+  createCloseAccountInstruction,
   getAccount,
 } from "@solana/spl-token";
 import { USDC_MINT, solscanTxUrl } from "@/lib/constants";
@@ -67,11 +68,13 @@ export function TradePanel({
       // Build ATA creation instructions (if needed) to bundle atomically
       const conn = program.provider.connection;
       const preIxs: any[] = [ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })];
+      const atasCreated: { ata: PublicKey; mint: PublicKey }[] = [];
       for (const [ata, mint] of [
         [userYes, yesMintPda], [userNo, noMintPda], [userUsdc, USDC_MINT],
       ] as [PublicKey, PublicKey][]) {
         try { await getAccount(conn, ata); } catch {
           preIxs.push(createAssociatedTokenAccountInstruction(publicKey, ata, publicKey, mint));
+          atasCreated.push({ ata, mint });
         }
       }
 
@@ -82,6 +85,17 @@ export function TradePanel({
       const BN = (await import("@coral-xyz/anchor")).BN;
       const lamports = Math.floor(amountNum * 1e6);
 
+      // Close the ATA that will remain empty after swap (cleanup wallet)
+      // Buy YES → NO ATA stays at 0; Buy NO → YES ATA stays at 0
+      const postIxs: any[] = [];
+      if (mode === "buy") {
+        const emptyAta = side === "yes" ? userNo : userYes;
+        const wasCreated = atasCreated.some((a) => a.ata.equals(emptyAta));
+        if (wasCreated) {
+          postIxs.push(createCloseAccountInstruction(emptyAta, publicKey, publicKey));
+        }
+      }
+
       const tx = await (program.methods as any)
         .swap(direction, new BN(lamports), new BN(minOutput))
         .accounts({
@@ -91,6 +105,7 @@ export function TradePanel({
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .preInstructions(preIxs)
+        .postInstructions(postIxs)
         .rpc();
 
       const desc = mode === "buy"
