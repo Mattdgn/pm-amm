@@ -107,6 +107,18 @@ export function TradePanel({
         .postInstructions(postIxs)
         .rpc();
 
+      // Record price snapshot after trade (force, bypass debounce)
+      fetch("/api/price-snap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          marketId: market.publicKey,
+          price: market.price,
+          timestamp: Math.floor(Date.now() / 1000),
+          force: true,
+        }),
+      }).catch(() => {});
+
       const desc = mode === "buy"
         ? `${formatUsdc(quote.output)} ${side.toUpperCase()} for ${amountNum.toFixed(2)} USDC`
         : `${amountNum.toFixed(2)} ${side.toUpperCase()} for ${formatUsdc(quote.output)} USDC`;

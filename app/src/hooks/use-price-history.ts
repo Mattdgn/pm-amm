@@ -18,7 +18,7 @@ export function usePriceHistory(marketId: string | undefined) {
       return data.points ?? [];
     },
     enabled: !!marketId,
-    refetchInterval: 30_000,
-    staleTime: 20_000,
+    refetchInterval: 15_000,
+    staleTime: 10_000,
   });
 }

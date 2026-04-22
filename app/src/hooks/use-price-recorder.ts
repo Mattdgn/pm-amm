@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { MarketData } from "@/hooks/use-markets";
 
-const DEBOUNCE_MS = 30_000;
+const DEBOUNCE_MS = 15_000;
 
 /**
  * Passive hook: records price snapshots to /api/price-snap
