@@ -28,8 +28,13 @@ export default function CreateMarketPage() {
     if (!program || !publicKey || !name) return;
     setLoading(true);
     try {
-      const durNum = parseFloat(durationValue) || 30;
+      const durNum = parseFloat(durationValue) || 0;
       const durSeconds = durationUnit === "hours" ? durNum * 3600 : durNum * 86400;
+      if (durSeconds < 3660) {
+        toast.error("Duration too short", { description: "Minimum 1 hour 1 minute (on-chain constraint)." });
+        setLoading(false);
+        return;
+      }
       const liquidity = parseFloat(initialLiquidity) || 0;
       const endTs = Math.floor(Date.now() / 1000) + Math.floor(durSeconds);
       const marketId = Math.floor(Date.now() / 1000) % 1_000_000;
