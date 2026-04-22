@@ -37,7 +37,7 @@ export default function CreateMarketPage() {
       }
       const liquidity = parseFloat(initialLiquidity) || 0;
       const endTs = Math.floor(Date.now() / 1000) + Math.floor(durSeconds);
-      const marketId = Math.floor(Date.now() / 1000) % 1_000_000;
+      const marketId = Date.now() % 1_000_000_000;
 
       const [marketPda] = PublicKey.findProgramAddressSync(
         [Buffer.from("market"), new BN(marketId).toArrayLike(Buffer, "le", 8)],
