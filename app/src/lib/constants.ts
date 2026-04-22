@@ -12,9 +12,10 @@ export const CLUSTER =
   (process.env.NEXT_PUBLIC_SOLANA_CLUSTER as "devnet" | "localnet") || "devnet";
 
 export const RPC_URL =
-  CLUSTER === "devnet"
+  process.env.NEXT_PUBLIC_RPC_URL ||
+  (CLUSTER === "devnet"
     ? "https://api.devnet.solana.com"
-    : "http://localhost:8899";
+    : "http://localhost:8899");
 
 export function solscanTxUrl(signature: string): string {
   return `https://solscan.io/tx/${signature}?cluster=${CLUSTER}`;
