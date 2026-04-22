@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -7,6 +8,7 @@ import { Wordmark } from "@/components/ui/wordmark";
 import { useMarkets } from "@/hooks/use-markets";
 import { formatUsdc, poolValue } from "@/lib/pm-math";
 import { CLUSTER } from "@/lib/constants";
+import { toast } from "sonner";
 
 const WalletMultiButton = dynamic(
   () => import("@solana/wallet-adapter-react-ui").then((m) => m.WalletMultiButton),
@@ -29,6 +31,29 @@ function Stat({ label, value, delta }: { label: string; value: string; delta?: s
 export function StatusBar() {
   const { publicKey } = useWallet();
   const { data: markets } = useMarkets();
+  const [minting, setMinting] = useState(false);
+
+  const handleFaucet = async () => {
+    if (!publicKey || minting) return;
+    setMinting(true);
+    try {
+      const res = await fetch("/api/faucet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wallet: publicKey.toBase58() }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        toast.success(`+${data.amount} mUSDC`, { description: "Faucet sent to your wallet" });
+      } else {
+        toast.error("Faucet failed", { description: data.error });
+      }
+    } catch {
+      toast.error("Faucet unavailable");
+    } finally {
+      setMinting(false);
+    }
+  };
 
   const activeCount = markets?.filter((m) => !m.resolved).length ?? 0;
   const totalCount = markets?.length ?? 0;
@@ -63,12 +88,21 @@ export function StatusBar() {
           LIVE
         </span>
         {publicKey && (
-          <Link
-            href="/admin"
-            className="text-muted hover:text-text-hi transition-all duration-[120ms]"
-          >
-            ADMIN
-          </Link>
+          <>
+            <button
+              onClick={handleFaucet}
+              disabled={minting}
+              className="text-yes hover:text-text-hi transition-all duration-[120ms] cursor-pointer disabled:opacity-50"
+            >
+              {minting ? "..." : "$ FAUCET"}
+            </button>
+            <Link
+              href="/admin"
+              className="text-muted hover:text-text-hi transition-all duration-[120ms]"
+            >
+              ADMIN
+            </Link>
+          </>
         )}
         <WalletMultiButton />
       </div>
