@@ -6,7 +6,7 @@
     "test": "cd anchor && anchor test",
     "test:rust": "cd anchor && cargo test --package pm_amm",
     "dev": "cd app && pnpm dev",
-    "deploy": "bash -c 'source app/.env.local 2>/dev/null; solana program deploy anchor/target/deploy/pm_amm.so --keypair ~/.config/solana/phantom.json --program-id GQGSTV9dig5fEwcfMpgqHjo9jAhxtnusMEbx8SrBBYnQ --url \"${NEXT_PUBLIC_RPC_URL:-https://api.devnet.solana.com}\" --use-rpc'",
+    "deploy": "bash -c 'source app/.env 2>/dev/null; solana program deploy anchor/target/deploy/pm_amm.so --keypair ~/.config/solana/phantom.json --program-id GQGSTV9dig5fEwcfMpgqHjo9jAhxtnusMEbx8SrBBYnQ --url \"${NEXT_PUBLIC_RPC_URL:-https://api.devnet.solana.com}\"'",
     "musdc": "cd anchor && ANCHOR_PROVIDER_URL=https://api.devnet.solana.com ANCHOR_WALLET=~/.config/solana/id.json pnpm exec ts-node --transpile-only -P ./tsconfig.json scripts/mint-usdc.ts"
   },
   "dependencies": {
