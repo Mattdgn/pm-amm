@@ -6,21 +6,9 @@ import { Sparkline } from "@/components/ui/sparkline";
 import { formatUsdc, formatTimeRemaining, poolValue } from "@/lib/pm-math";
 import type { MarketData } from "@/hooks/use-markets";
 
-/** Generate a sparkline trending toward the market's current price. */
-function marketSparkline(marketId: number, currentPrice: number): number[] {
-  let s = marketId * 7 + 1;
-  const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
-  const pts: number[] = [];
-  let v = 0.5;
-  const target = currentPrice;
-  const drift = (target - 0.5) / 30;
-  for (let i = 0; i < 30; i++) {
-    v += (rnd() - 0.5) * 0.03 + drift;
-    v = Math.max(0.05, Math.min(0.95, v));
-    pts.push(v);
-  }
-  pts[pts.length - 1] = currentPrice;
-  return pts;
+/** Flat line at current price (no fake data). */
+function flatSparkline(currentPrice: number): number[] {
+  return [currentPrice, currentPrice];
 }
 
 function getStatus(m: MarketData): "active" | "expiring" | "resolved-yes" | "resolved-no" {
@@ -99,7 +87,7 @@ export function MarketTable({ markets, selectedId, onSelect, priceHistories }: M
             </div>
             <div>
               <Sparkline
-                points={priceHistories?.get(m.publicKey) ?? marketSparkline(m.marketId, m.price)}
+                points={priceHistories?.get(m.publicKey) ?? flatSparkline(m.price)}
                 color={m.price >= 0.5 ? "var(--yes)" : "var(--no)"}
                 width={64}
                 height={18}
