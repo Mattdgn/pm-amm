@@ -16,7 +16,8 @@ import Link from "next/link";
 
 export default function CreateMarketPage() {
   const [name, setName] = useState("");
-  const [durationDays, setDurationDays] = useState("30");
+  const [durationValue, setDurationValue] = useState("30");
+  const [durationUnit, setDurationUnit] = useState<"hours" | "days">("days");
   const [initialLiquidity, setInitialLiquidity] = useState("100");
   const [loading, setLoading] = useState(false);
   const program = useProgram();
@@ -27,9 +28,10 @@ export default function CreateMarketPage() {
     if (!program || !publicKey || !name) return;
     setLoading(true);
     try {
-      const days = parseFloat(durationDays) || 30;
+      const durNum = parseFloat(durationValue) || 30;
+      const durSeconds = durationUnit === "hours" ? durNum * 3600 : durNum * 86400;
       const liquidity = parseFloat(initialLiquidity) || 0;
-      const endTs = Math.floor(Date.now() / 1000) + Math.floor(days * 86400);
+      const endTs = Math.floor(Date.now() / 1000) + Math.floor(durSeconds);
       const marketId = Math.floor(Date.now() / 1000) % 1_000_000;
 
       const [marketPda] = PublicKey.findProgramAddressSync(
@@ -127,16 +129,55 @@ export default function CreateMarketPage() {
             </div>
           </div>
 
-          <AmountInput
-            label="DURATION"
-            unit="DAYS"
-            type="number"
-            placeholder="30"
-            value={durationDays}
-            onChange={(e) => setDurationDays(e.target.value)}
-            min="1"
-            step="1"
-          />
+          <div>
+            <div className="flex items-center justify-between mb-[8px]">
+              <div className="text-caption">DURATION</div>
+              <div className="flex gap-[4px]">
+                <button
+                  type="button"
+                  onClick={() => { setDurationUnit("hours"); setDurationValue(durationUnit === "days" ? String(Math.round((parseFloat(durationValue) || 1) * 24)) : durationValue); }}
+                  className={`px-[8px] py-[3px] rounded-sm text-[10px] font-mono uppercase tracking-[0.05em] border cursor-pointer transition-all duration-[120ms] ${durationUnit === "hours" ? "text-text-hi border-line-2 bg-surface" : "text-muted border-transparent"}`}
+                >
+                  Hours
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setDurationUnit("days"); setDurationValue(durationUnit === "hours" ? String(Math.round((parseFloat(durationValue) || 24) / 24)) : durationValue); }}
+                  className={`px-[8px] py-[3px] rounded-sm text-[10px] font-mono uppercase tracking-[0.05em] border cursor-pointer transition-all duration-[120ms] ${durationUnit === "days" ? "text-text-hi border-line-2 bg-surface" : "text-muted border-transparent"}`}
+                >
+                  Days
+                </button>
+              </div>
+            </div>
+
+            {/* Presets */}
+            <div className="flex gap-[6px] mb-[8px]">
+              {(durationUnit === "hours"
+                ? [{ label: "2h", val: "2" }, { label: "6h", val: "6" }, { label: "12h", val: "12" }, { label: "24h", val: "24" }]
+                : [{ label: "1d", val: "1" }, { label: "7d", val: "7" }, { label: "14d", val: "14" }, { label: "30d", val: "30" }]
+              ).map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => setDurationValue(p.val)}
+                  className={`flex-1 py-[6px] rounded-sm text-[11px] font-mono border cursor-pointer transition-all duration-[120ms] ${durationValue === p.val ? "text-text-hi border-line-2 bg-surface" : "text-muted border-line hover:text-text-hi"}`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            <AmountInput
+              label=""
+              unit={durationUnit === "hours" ? "HOURS" : "DAYS"}
+              type="number"
+              placeholder={durationUnit === "hours" ? "24" : "30"}
+              value={durationValue}
+              onChange={(e) => setDurationValue(e.target.value)}
+              min="1"
+              step="1"
+            />
+          </div>
 
           <AmountInput
             label="INITIAL LIQUIDITY"
@@ -149,15 +190,25 @@ export default function CreateMarketPage() {
             step="1"
           />
 
-          <p className="text-[11px] text-muted font-mono">
-            First deposit sets L₀ and initializes at 50/50.
-          </p>
+          {(() => {
+            const durNum = parseFloat(durationValue) || 0;
+            if (durNum <= 0) return null;
+            const durSeconds = durationUnit === "hours" ? durNum * 3600 : durNum * 86400;
+            const expires = new Date(Date.now() + durSeconds * 1000);
+            return (
+              <p className="text-[11px] text-muted font-mono">
+                Expires {expires.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}{" "}
+                {expires.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                {" · "}First deposit sets L₀ at 50/50.
+              </p>
+            );
+          })()}
 
           <Button
             variant="secondary"
             className="w-full"
             onClick={handleCreate}
-            disabled={!publicKey || !name || loading}
+            disabled={!publicKey || !name || loading || (parseFloat(durationValue) || 0) <= 0}
           >
             {loading ? "Creating..." : "Create Market"}
           </Button>
