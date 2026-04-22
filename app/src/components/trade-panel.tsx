@@ -5,6 +5,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { Button } from "@/components/ui/button";
 import { AmountInput } from "@/components/ui/amount-input";
 import { MetaRow } from "@/components/ui/meta-row";
+import { useQueryClient } from "@tanstack/react-query";
 import { useProgram } from "@/hooks/use-program";
 import { useSwapQuote, type SwapMode } from "@/hooks/use-swap-quote";
 import { formatUsdc } from "@/lib/pm-math";
@@ -34,6 +35,7 @@ export function TradePanel({
   const [side, setSide] = useState<"yes" | "no">("yes");
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
   const program = useProgram();
   const { publicKey } = useWallet();
 
@@ -107,24 +109,24 @@ export function TradePanel({
         .postInstructions(postIxs)
         .rpc();
 
-      // Estimate post-trade price and record snapshot
-      const avgPrice = mode === "buy"
-        ? (lamports / quote.output)          // USDC paid / tokens received
-        : (quote.output / lamports);         // USDC received / tokens sold
-      const postPrice = mode === "buy"
-        ? (side === "yes" ? avgPrice : 1 - avgPrice)
-        : (side === "yes" ? avgPrice : 1 - avgPrice);
-      const clampedPrice = Math.max(0.01, Math.min(0.99, postPrice));
-      fetch("/api/price-snap", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          marketId: market.publicKey,
-          price: clampedPrice,
-          timestamp: Math.floor(Date.now() / 1000),
-          force: true,
-        }),
-      }).catch(() => {});
+      // Refetch markets to get real post-trade price, then snap it
+      queryClient.invalidateQueries({ queryKey: ["markets"] });
+      setTimeout(async () => {
+        const data = await queryClient.fetchQuery({ queryKey: ["markets"] });
+        const updated = (data as any[])?.find((m: any) => m.publicKey === market.publicKey);
+        if (updated?.price) {
+          fetch("/api/price-snap", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              marketId: market.publicKey,
+              price: updated.price,
+              timestamp: Math.floor(Date.now() / 1000),
+              force: true,
+            }),
+          }).catch(() => {});
+        }
+      }, 2000);
 
       const desc = mode === "buy"
         ? `${formatUsdc(quote.output)} ${side.toUpperCase()} for ${amountNum.toFixed(2)} USDC`
