@@ -396,11 +396,12 @@ fn xy_from_u_fast(u: I80F48, l_eff: I80F48) -> (I80F48, I80F48) {
 }
 
 /// Find x given y_target: binary search on u using LUT (fast).
+/// 20 iterations → precision ~12/2^20 ≈ 1e-5 (sufficient for 6 decimals).
 fn find_x_from_y(y_target: I80F48, l_eff: I80F48) -> Result<I80F48> {
     let mut lo = I80F48::lit("-6");
     let mut hi = I80F48::lit("6");
 
-    for _ in 0..30 {
+    for _ in 0..20 {
         let mid = (lo + hi) / TWO;
         let (_, y_mid) = xy_from_u_fast(mid, l_eff);
         if y_mid < y_target {
@@ -420,7 +421,7 @@ fn find_y_from_x(x_target: I80F48, l_eff: I80F48) -> Result<I80F48> {
     let mut lo = I80F48::lit("-6");
     let mut hi = I80F48::lit("6");
 
-    for _ in 0..30 {
+    for _ in 0..20 {
         let mid = (lo + hi) / TWO;
         let (x_mid, _) = xy_from_u_fast(mid, l_eff);
         if x_mid > x_target {
