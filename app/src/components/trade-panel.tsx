@@ -40,17 +40,17 @@ export function TradePanel({
   const { publicKey } = useWallet();
 
   const amountNum = parseFloat(amount) || 0;
+  const maxSellable = side === "yes" ? (tokens?.yes ?? 0) : (tokens?.no ?? 0);
+  const sellExceeds = mode === "sell" && amountNum * 1e6 > maxSellable;
   const rawAmount = mode === "buy" ? amountNum : amountNum * 1e6;
 
   const { data: quote, isLoading: quoteLoading } = useSwapQuote(
-    market.publicKey, side, mode, rawAmount
+    market.publicKey, side, mode, sellExceeds ? 0 : rawAmount
   );
 
   const minOutput = quote?.output
     ? Math.floor(quote.output * (1 - SLIPPAGE_BPS / 10000))
     : 0;
-
-  const maxSellable = side === "yes" ? (tokens?.yes ?? 0) : (tokens?.no ?? 0);
 
   const handleTrade = async () => {
     if (!program || !publicKey || !amount || !quote?.output) return;
@@ -213,7 +213,10 @@ export function TradePanel({
       )}
 
       {/* Quote */}
-      {amountNum > 0 && (
+      {sellExceeds && (
+        <p className="text-no text-[11px] font-mono">Insufficient balance</p>
+      )}
+      {amountNum > 0 && !sellExceeds && (
         <div className="border-t border-line pt-[8px]">
           {quoteLoading ? (
             <p className="text-muted text-[12px] font-mono">Fetching quote...</p>
@@ -241,7 +244,7 @@ export function TradePanel({
         variant={side === "yes" ? "yes" : "no"}
         className="w-full uppercase text-[11px] tracking-[0.05em]"
         onClick={handleTrade}
-        disabled={!publicKey || !amount || loading || market.resolved || !quote?.output}
+        disabled={!publicKey || !amount || loading || market.resolved || !quote?.output || sellExceeds}
       >
         {loading ? "TRADING..." : `${mode.toUpperCase()} ${side.toUpperCase()}`}
       </Button>
