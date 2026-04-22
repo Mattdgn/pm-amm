@@ -12,7 +12,12 @@ import { formatUsdc } from "@/lib/pm-math";
 import type { MarketData } from "@/hooks/use-markets";
 import type { UserTokens } from "@/hooks/use-user-tokens";
 import { PublicKey, ComputeBudgetProgram } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from "@solana/spl-token";
+import {
+  TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddress,
+  createAssociatedTokenAccountInstruction,
+  getAccount,
+} from "@solana/spl-token";
 import { USDC_MINT, solscanTxUrl } from "@/lib/constants";
 import { BN } from "@coral-xyz/anchor";
 import { toast } from "sonner";
@@ -84,6 +89,12 @@ export function PositionCard({
         [Buffer.from("vault"), marketPda.toBuffer()], program.programId)[0];
       const userWinning = await getAssociatedTokenAddress(winningMint, publicKey);
       const userUsdc = await getAssociatedTokenAddress(USDC_MINT, publicKey);
+      const conn = program.provider.connection;
+      const preIxs: any[] = [ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })];
+      // Ensure USDC ATA exists (may have been closed)
+      try { await getAccount(conn, userUsdc); } catch {
+        preIxs.push(createAssociatedTokenAccountInstruction(publicKey, userUsdc, publicKey, USDC_MINT));
+      }
       const tx = await (program.methods as any)
         .claimWinnings(new BN(winningBalance))
         .accounts({
@@ -91,6 +102,7 @@ export function PositionCard({
           winningMint, vault: vaultPda, userWinning, userCollateral: userUsdc,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
+        .preInstructions(preIxs)
         .rpc();
       toast.success(`Claimed ${formatUsdc(winningBalance)} USDC!`, {
         action: { label: "Solscan ↗", onClick: () => window.open(solscanTxUrl(tx), "_blank") },

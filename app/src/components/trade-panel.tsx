@@ -85,15 +85,14 @@ export function TradePanel({
       const BN = (await import("@coral-xyz/anchor")).BN;
       const lamports = Math.floor(amountNum * 1e6);
 
-      // Close the ATA that will remain empty after swap (cleanup wallet)
-      // Buy YES → NO ATA stays at 0; Buy NO → YES ATA stays at 0
+      // Close ATAs that remain empty after swap (cleanup wallet, recover rent)
+      // Buy YES → NO ATA empty; Buy NO → YES ATA empty
+      // Sell YES → YES ATA may be empty (if sold all); NO ATA empty if just created
       const postIxs: any[] = [];
-      if (mode === "buy") {
-        const emptyAta = side === "yes" ? userNo : userYes;
-        const wasCreated = atasCreated.some((a) => a.ata.equals(emptyAta));
-        if (wasCreated) {
-          postIxs.push(createCloseAccountInstruction(emptyAta, publicKey, publicKey));
-        }
+      const emptyAta = side === "yes" ? userNo : userYes;
+      const wasCreated = atasCreated.some((a) => a.ata.equals(emptyAta));
+      if (wasCreated) {
+        postIxs.push(createCloseAccountInstruction(emptyAta, publicKey, publicKey));
       }
 
       const tx = await (program.methods as any)
