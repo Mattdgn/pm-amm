@@ -223,23 +223,35 @@ export function TradePanel({
           ) : quote?.error ? (
             <p className="text-no text-[11px] font-mono">
               {quote.error.includes("ProgramFailedToComplete")
-                ? "Amount too large for this pool"
+                ? "Exceeds on-chain compute limit — reduce amount"
                 : quote.error.includes("Custom")
                   ? "Insufficient balance"
                   : quote.error}
             </p>
           ) : quote?.output ? (
             <>
-              <MetaRow label="You receive" value={`${outputDisplay} ${outputUnit}`} />
-              <MetaRow
-                label="Avg price"
-                value={
-                  mode === "buy"
-                    ? `${(amountNum * 1e6 / quote.output).toFixed(4)} USDC/${side.toUpperCase()}`
-                    : `${(quote.output / (amountNum * 1e6)).toFixed(4)} USDC/${side.toUpperCase()}`
-                }
-              />
-              <MetaRow label="Min output (1%)" value={`${formatUsdc(minOutput)} ${outputUnit}`} last />
+              {(() => {
+                const avgP = mode === "buy"
+                  ? amountNum * 1e6 / quote.output
+                  : quote.output / (amountNum * 1e6);
+                const fairP = mode === "buy"
+                  ? (side === "yes" ? market.price : 1 - market.price)
+                  : (side === "yes" ? market.price : 1 - market.price);
+                const slippage = fairP > 0 ? Math.abs(avgP - fairP) / fairP * 100 : 0;
+                return (
+                  <>
+                    <MetaRow label="You receive" value={`${outputDisplay} ${outputUnit}`} />
+                    <MetaRow label="Avg price" value={`${avgP.toFixed(4)} USDC/${side.toUpperCase()}`} />
+                    <MetaRow label="Slippage" value={`${slippage.toFixed(1)}%`} />
+                    {slippage > 5 && (
+                      <div className="text-[11px] font-mono py-[6px] px-[8px] mt-[4px] border rounded-sm border-[color-mix(in_oklch,var(--no)_40%,transparent)] bg-[color-mix(in_oklch,var(--no)_8%,transparent)] text-no">
+                        {slippage > 20 ? "⚠ Extreme slippage" : "⚠ High slippage"} — you are moving the price significantly
+                      </div>
+                    )}
+                    <MetaRow label="Min output (1%)" value={`${formatUsdc(minOutput)} ${outputUnit}`} last />
+                  </>
+                );
+              })()}
             </>
           ) : null}
         </div>
