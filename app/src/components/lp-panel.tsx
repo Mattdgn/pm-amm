@@ -118,7 +118,7 @@ export function LpPanel({ market }: { market: MarketData }) {
         </div>
       )}
 
-      <div className="flex gap-[8px]">
+      {!market.resolved && <div className="flex gap-[8px]">
         <AmountInput
           placeholder="0.00"
           value={depositAmt}
@@ -131,12 +131,12 @@ export function LpPanel({ market }: { market: MarketData }) {
         <Button
           variant="secondary"
           onClick={handleDeposit}
-          disabled={!publicKey || !depositAmt || loading || market.resolved}
+          disabled={!publicKey || !depositAmt || loading}
           className="shrink-0"
         >
           {loading ? "..." : "Deposit"}
         </Button>
-      </div>
+      </div>}
 
       {lp && lp.shares > 0 && (
         <Button variant="secondary" className="w-full" onClick={handleWithdraw} disabled={loading}>

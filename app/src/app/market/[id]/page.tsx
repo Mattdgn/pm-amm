@@ -107,13 +107,18 @@ export default function MarketPage({
             <PositionCard market={market} tokens={tokens ?? null} />
 
             {/* Trade / LP */}
-            {!market.resolved && (
+            {!market.resolved ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-[16px]">
                 <TradePanel market={market} tokens={tokens ?? null} />
                 <div className="space-y-[16px]">
                   <LpPanel market={market} />
                   <ResidualsWidget market={market} />
                 </div>
+              </div>
+            ) : (
+              <div className="space-y-[16px]">
+                <LpPanel market={market} />
+                <ResidualsWidget market={market} />
               </div>
             )}
           </div>
