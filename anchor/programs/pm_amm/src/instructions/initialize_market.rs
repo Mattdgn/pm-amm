@@ -140,10 +140,8 @@ pub fn handler<'info>(
     let bump = ctx.bumps.market;
     let signer_seeds: &[&[u8]] = &[Market::SEED, &id_bytes, &[bump]];
 
-    const YES_URI: &str = "https://raw.githubusercontent.com/Mattdgn/pm-amm/main/app/public/tokens/yes.json";
-    const NO_URI: &str = "https://raw.githubusercontent.com/Mattdgn/pm-amm/main/app/public/tokens/no.json";
-
     // Create Metaplex metadata for YES mint (32 bytes max on-chain)
+    // URI left empty — name from on-chain, image served via dynamic API route
     let yes_name = truncate_str(&format!("YES - {}", name), 32);
     create_token_metadata(
         ctx.accounts.yes_metadata.to_account_info(),
@@ -154,7 +152,7 @@ pub fn handler<'info>(
         ctx.accounts.rent.to_account_info(),
         yes_name,
         "YES".to_string(),
-        YES_URI.to_string(),
+        String::new(),
         signer_seeds,
     )?;
 
@@ -169,7 +167,7 @@ pub fn handler<'info>(
         ctx.accounts.rent.to_account_info(),
         no_name,
         "NO".to_string(),
-        NO_URI.to_string(),
+        String::new(),
         signer_seeds,
     )?;
 
