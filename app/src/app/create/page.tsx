@@ -17,7 +17,7 @@ import Link from "next/link";
 export default function CreateMarketPage() {
   const [name, setName] = useState("");
   const [durationValue, setDurationValue] = useState("30");
-  const [durationUnit, setDurationUnit] = useState<"hours" | "days">("days");
+  const [durationUnit, setDurationUnit] = useState<"min" | "hours" | "days">("days");
   const [initialLiquidity, setInitialLiquidity] = useState("100");
   const [loading, setLoading] = useState(false);
   const program = useProgram();
@@ -29,9 +29,9 @@ export default function CreateMarketPage() {
     setLoading(true);
     try {
       const durNum = parseFloat(durationValue) || 0;
-      const durSeconds = durationUnit === "hours" ? durNum * 3600 : durNum * 86400;
-      if (durSeconds < 3660) {
-        toast.error("Duration too short", { description: "Minimum 1 hour 1 minute (on-chain constraint)." });
+      const durSeconds = durationUnit === "min" ? durNum * 60 : durationUnit === "hours" ? durNum * 3600 : durNum * 86400;
+      if (durSeconds < 360) {
+        toast.error("Duration too short", { description: "Minimum 6 minutes." });
         setLoading(false);
         return;
       }
@@ -138,28 +138,32 @@ export default function CreateMarketPage() {
             <div className="flex items-center justify-between mb-[8px]">
               <div className="text-caption">DURATION</div>
               <div className="flex gap-[4px]">
-                <button
-                  type="button"
-                  onClick={() => { setDurationUnit("hours"); setDurationValue(durationUnit === "days" ? String(Math.round((parseFloat(durationValue) || 1) * 24)) : durationValue); }}
-                  className={`px-[8px] py-[3px] rounded-sm text-[10px] font-mono uppercase tracking-[0.05em] border cursor-pointer transition-all duration-[120ms] ${durationUnit === "hours" ? "text-text-hi border-line-2 bg-surface" : "text-muted border-transparent"}`}
-                >
-                  Hours
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setDurationUnit("days"); setDurationValue(durationUnit === "hours" ? String(Math.round((parseFloat(durationValue) || 24) / 24)) : durationValue); }}
-                  className={`px-[8px] py-[3px] rounded-sm text-[10px] font-mono uppercase tracking-[0.05em] border cursor-pointer transition-all duration-[120ms] ${durationUnit === "days" ? "text-text-hi border-line-2 bg-surface" : "text-muted border-transparent"}`}
-                >
-                  Days
-                </button>
+                {(["min", "hours", "days"] as const).map((u) => (
+                  <button
+                    key={u}
+                    type="button"
+                    onClick={() => {
+                      const v = parseFloat(durationValue) || 1;
+                      const toSec: Record<string, number> = { min: 60, hours: 3600, days: 86400 };
+                      const seconds = v * toSec[durationUnit];
+                      setDurationValue(String(Math.round(seconds / toSec[u])));
+                      setDurationUnit(u);
+                    }}
+                    className={`px-[8px] py-[3px] rounded-sm text-[10px] font-mono uppercase tracking-[0.05em] border cursor-pointer transition-all duration-[120ms] ${durationUnit === u ? "text-text-hi border-line-2 bg-surface" : "text-muted border-transparent"}`}
+                  >
+                    {u}
+                  </button>
+                ))}
               </div>
             </div>
 
             {/* Presets */}
             <div className="flex gap-[6px] mb-[8px]">
-              {(durationUnit === "hours"
-                ? [{ label: "2h", val: "2" }, { label: "6h", val: "6" }, { label: "12h", val: "12" }, { label: "24h", val: "24" }]
-                : [{ label: "1d", val: "1" }, { label: "7d", val: "7" }, { label: "14d", val: "14" }, { label: "30d", val: "30" }]
+              {(durationUnit === "min"
+                ? [{ label: "10m", val: "10" }, { label: "30m", val: "30" }, { label: "45m", val: "45" }, { label: "60m", val: "60" }]
+                : durationUnit === "hours"
+                  ? [{ label: "2h", val: "2" }, { label: "6h", val: "6" }, { label: "12h", val: "12" }, { label: "24h", val: "24" }]
+                  : [{ label: "1d", val: "1" }, { label: "7d", val: "7" }, { label: "14d", val: "14" }, { label: "30d", val: "30" }]
               ).map((p) => (
                 <button
                   key={p.label}
@@ -174,7 +178,7 @@ export default function CreateMarketPage() {
 
             <AmountInput
               label=""
-              unit={durationUnit === "hours" ? "HOURS" : "DAYS"}
+              unit={durationUnit === "min" ? "MIN" : durationUnit === "hours" ? "HOURS" : "DAYS"}
               type="number"
               placeholder={durationUnit === "hours" ? "24" : "30"}
               value={durationValue}
@@ -198,7 +202,7 @@ export default function CreateMarketPage() {
           {(() => {
             const durNum = parseFloat(durationValue) || 0;
             if (durNum <= 0) return null;
-            const durSeconds = durationUnit === "hours" ? durNum * 3600 : durNum * 86400;
+            const durSeconds = durationUnit === "min" ? durNum * 60 : durationUnit === "hours" ? durNum * 3600 : durNum * 86400;
             const expires = new Date(Date.now() + durSeconds * 1000);
             return (
               <p className="text-[11px] text-muted font-mono">
