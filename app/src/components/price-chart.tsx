@@ -10,10 +10,11 @@ interface PriceChartProps {
 export function PriceChart({ marketId, currentPrice }: PriceChartProps) {
   const { data: points } = usePriceHistory(marketId);
 
-  // Use Redis data or generate minimal fallback
-  const prices = points && points.length >= 2
+  // Use Redis data + append current live price as last point
+  const history = points && points.length >= 2
     ? points.map((p) => p.p)
-    : [0.5, currentPrice];
+    : [0.5];
+  const prices = [...history, currentPrice];
 
   const W = 600;
   const H = 180;
@@ -58,8 +59,8 @@ export function PriceChart({ marketId, currentPrice }: PriceChartProps) {
       <div className="flex items-center justify-between mb-[12px]">
         <div className="text-caption">PRICE</div>
         <div className="flex gap-[16px] text-[11px] font-mono">
-          <span className="text-yes">YES {(lastPrice * 100).toFixed(1)}%</span>
-          <span className="text-no">NO {((1 - lastPrice) * 100).toFixed(1)}%</span>
+          <span className="text-yes">YES {(currentPrice * 100).toFixed(1)}%</span>
+          <span className="text-no">NO {((1 - currentPrice) * 100).toFixed(1)}%</span>
         </div>
       </div>
 

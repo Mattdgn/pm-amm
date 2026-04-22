@@ -107,13 +107,20 @@ export function TradePanel({
         .postInstructions(postIxs)
         .rpc();
 
-      // Record price snapshot after trade (force, bypass debounce)
+      // Estimate post-trade price and record snapshot
+      const avgPrice = mode === "buy"
+        ? (lamports / quote.output)          // USDC paid / tokens received
+        : (quote.output / lamports);         // USDC received / tokens sold
+      const postPrice = mode === "buy"
+        ? (side === "yes" ? avgPrice : 1 - avgPrice)
+        : (side === "yes" ? avgPrice : 1 - avgPrice);
+      const clampedPrice = Math.max(0.01, Math.min(0.99, postPrice));
       fetch("/api/price-snap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           marketId: market.publicKey,
-          price: market.price,
+          price: clampedPrice,
           timestamp: Math.floor(Date.now() / 1000),
           force: true,
         }),
