@@ -124,13 +124,17 @@ export default function CreateMarketPage() {
 
           <div>
             <div className="text-caption mb-[8px]">QUESTION</div>
-            <div className="border border-line-2 rounded-lg px-[12px] focus-within:border-muted transition-all duration-[120ms]">
+            <div className={`border rounded-lg px-[12px] transition-all duration-[120ms] ${name.length > 64 ? "border-no" : "border-line-2 focus-within:border-muted"}`}>
               <input
                 className="bg-transparent border-none outline-none text-text-hi text-[14px] py-[10px] w-full"
                 placeholder="Will BTC hit $200k by December?"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                maxLength={64}
               />
+            </div>
+            <div className="flex justify-end mt-[4px]">
+              <span className={`text-[10px] font-mono ${name.length > 64 ? "text-no" : "text-muted"}`}>{name.length}/64</span>
             </div>
           </div>
 
@@ -217,7 +221,7 @@ export default function CreateMarketPage() {
             variant="secondary"
             className="w-full"
             onClick={handleCreate}
-            disabled={!publicKey || !name || loading || (parseFloat(durationValue) || 0) <= 0}
+            disabled={!publicKey || !name || name.length > 64 || loading || (parseFloat(durationValue) || 0) <= 0}
           >
             {loading ? "Creating..." : "Create Market"}
           </Button>

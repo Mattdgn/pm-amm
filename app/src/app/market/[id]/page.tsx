@@ -14,9 +14,11 @@ import { MetaRow } from "@/components/ui/meta-row";
 import { Badge } from "@/components/ui/badge";
 import { useMarkets } from "@/hooks/use-markets";
 import { useUserTokens } from "@/hooks/use-user-tokens";
-import { formatUsdc, formatTimeRemaining, poolValue } from "@/lib/pm-math";
+import { formatUsdc, poolValue } from "@/lib/pm-math";
+import { Countdown } from "@/components/ui/countdown";
 import { USDC_MINT, solscanAccountUrl } from "@/lib/constants";
 import { PublicKey } from "@solana/web3.js";
+import { toast } from "sonner";
 import Link from "next/link";
 
 export default function MarketPage({
@@ -72,6 +74,15 @@ export default function MarketPage({
               ) : (
                 <Badge variant="yes" dot>Active</Badge>
               )}
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  toast.success("Link copied");
+                }}
+                className="text-[11px] text-muted hover:text-text-hi transition-all duration-[120ms] font-mono cursor-pointer"
+              >
+                Copy link
+              </button>
               <a
                 href={solscanAccountUrl(market.publicKey)}
                 target="_blank"
@@ -97,7 +108,7 @@ export default function MarketPage({
             {/* Meta */}
             <div className="max-w-md">
               <MetaRow label="Pool Value" value={`$${formatUsdc(poolValue(market.price, market.lEff))}`} />
-              <MetaRow label="Expires" value={formatTimeRemaining(market.endTs)} last />
+              <MetaRow label="Expires" value={<Countdown endTs={market.endTs} />} last />
             </div>
 
             {/* Projections */}

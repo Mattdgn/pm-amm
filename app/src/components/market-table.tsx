@@ -3,7 +3,8 @@
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ProbabilityBar } from "@/components/ui/probability-bar";
 import { Sparkline } from "@/components/ui/sparkline";
-import { formatUsdc, formatTimeRemaining, poolValue } from "@/lib/pm-math";
+import { Countdown } from "@/components/ui/countdown";
+import { formatUsdc, poolValue } from "@/lib/pm-math";
 import type { MarketData } from "@/hooks/use-markets";
 
 /** Flat line at current price (no fake data). */
@@ -38,7 +39,7 @@ export function MarketTable({ markets, selectedId, onSelect, priceHistories }: M
           "grid gap-[16px] px-[24px] py-[10px]",
           "border-b border-line",
           "font-mono text-[10px] text-muted uppercase tracking-[0.08em]",
-          "grid-cols-[1fr_72px_72px_80px_100px_80px_72px]",
+          "grid-cols-[1fr_72px_72px_80px_100px_80px_72px_72px]",
         ].join(" ")}
       >
         <div>MARKET</div>
@@ -47,6 +48,7 @@ export function MarketTable({ markets, selectedId, onSelect, priceHistories }: M
         <div>TREND</div>
         <div className="text-center">PROB</div>
         <div className="text-right">TVL</div>
+        <div className="text-right">EXPIRES</div>
         <div className="text-right">STATUS</div>
       </div>
 
@@ -70,7 +72,7 @@ export function MarketTable({ markets, selectedId, onSelect, priceHistories }: M
               "h-[var(--row)]",
               isSelected ? "bg-surface" : "hover:bg-surface",
               isResolved ? "opacity-55 hover:opacity-100" : "",
-              "grid-cols-[1fr_72px_72px_80px_100px_80px_72px]",
+              "grid-cols-[1fr_72px_72px_80px_100px_80px_72px_72px]",
             ].join(" ")}
           >
             {isSelected && (
@@ -97,6 +99,9 @@ export function MarketTable({ markets, selectedId, onSelect, priceHistories }: M
               <ProbabilityBar yesPercent={yesP} showLabels={false} />
             </div>
             <div className="text-right tnum text-text">${formatUsdc(pv)}</div>
+            <div className="text-right text-[11px]">
+              <Countdown endTs={m.endTs} />
+            </div>
             <div className="text-right">
               <StatusBadge variant={status} />
             </div>

@@ -1,6 +1,6 @@
 interface MetaRowProps {
   label: string;
-  value: string;
+  value: React.ReactNode;
   last?: boolean;
   className?: string;
 }

@@ -19,6 +19,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://pm-amm.xyz"),
   title: "pm-amm — Prediction Markets on Solana",
   description:
     "Paradigm pm-AMM: the first production prediction market AMM with uniform LVR and continuous LP yield.",

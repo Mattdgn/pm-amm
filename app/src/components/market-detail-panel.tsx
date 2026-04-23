@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useUserTokens } from "@/hooks/use-user-tokens";
 import { usePositionValue } from "@/hooks/use-position-value";
-import { formatUsdc, formatTimeRemaining, poolValue } from "@/lib/pm-math";
+import { formatUsdc, poolValue } from "@/lib/pm-math";
+import { Countdown } from "@/components/ui/countdown";
 import type { MarketData } from "@/hooks/use-markets";
 import { USDC_MINT, PROGRAM_ID, solscanAccountUrl } from "@/lib/constants";
 import { PublicKey } from "@solana/web3.js";
@@ -72,7 +73,7 @@ export function MarketDetailPanel({ market }: MarketDetailPanelProps) {
 
       {/* Market meta */}
       <MetaRow label="TVL" value={`$${formatUsdc(pv)}`} />
-      <MetaRow label="Expires" value={formatTimeRemaining(market.endTs)} />
+      <MetaRow label="Expires" value={<Countdown endTs={market.endTs} />} />
       <MetaRow label="LP Shares" value={market.totalLpShares.toFixed(2)} />
       <MetaRow label="Address" value={truncateKey(market.publicKey)} last />
 
