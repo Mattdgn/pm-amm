@@ -54,7 +54,8 @@ export async function POST(req: Request) {
     await connection.confirmTransaction(sig, "confirmed");
 
     return NextResponse.json({ ok: true, signature: sig, amount: AMOUNT / 1e6 });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message?.slice(0, 200) }, { status: 500 });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: msg.slice(0, 200) }, { status: 500 });
   }
 }

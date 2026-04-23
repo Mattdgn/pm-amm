@@ -47,9 +47,11 @@ function AdminMarketRow({ market }: { market: MarketData }) {
           onClick: () => window.open(solscanTxUrl(sig), "_blank"),
         },
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("WalletSign") || msg.includes("User rejected")) { toast.info("Transaction cancelled"); setLoading(null); return; }
       toast.error("Resolve failed", {
-        description: err.message?.slice(0, 150),
+        description: msg.slice(0, 150),
       });
     } finally {
       setLoading(null);

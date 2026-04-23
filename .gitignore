@@ -10,6 +10,7 @@ test-ledger
 app/.next
 design_handoff_pmamm_brand
 doc/sprints
+SPRINT_STATUS.md
 
 # IDE
 .vscode/

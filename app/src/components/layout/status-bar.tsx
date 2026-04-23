@@ -83,10 +83,6 @@ export function StatusBar() {
       </div>
 
       <div className="flex items-center gap-[20px]">
-        <span className="hidden sm:inline-flex items-center gap-[6px] text-yes">
-          <span className="w-[6px] h-[6px] rounded-full bg-yes animate-[blink_1.4s_infinite]" />
-          LIVE
-        </span>
         {publicKey && (
           <>
             <button
@@ -94,7 +90,7 @@ export function StatusBar() {
               disabled={minting}
               className="text-yes hover:text-text-hi transition-all duration-[120ms] cursor-pointer disabled:opacity-50"
             >
-              {minting ? "..." : "$ FAUCET"}
+              {minting ? "..." : "$FAUCET_mUSDC"}
             </button>
             <Link
               href="/admin"

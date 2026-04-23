@@ -1,5 +1,5 @@
 {
-  "address": "GQGSTV9dig5fEwcfMpgqHjo9jAhxtnusMEbx8SrBBYnQ",
+  "address": "8V872cTKfH1gC5zBvQhrQN2DXSmRNokPPjPsBE46MZNj",
   "metadata": {
     "name": "pm_amm",
     "version": "0.1.0",
@@ -8,262 +8,11 @@
   },
   "instructions": [
     {
-      "name": "initialize_market",
-      "discriminator": [
-        35,
-        35,
-        189,
-        193,
-        155,
-        48,
-        170,
-        203
-      ],
-      "accounts": [
-        {
-          "name": "authority",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "market",
-          "writable": true
-        },
-        {
-          "name": "collateral_mint",
-          "docs": [
-            "The collateral mint (USDC or mock). Must have 6 decimals."
-          ]
-        },
-        {
-          "name": "yes_mint",
-          "writable": true
-        },
-        {
-          "name": "no_mint",
-          "writable": true
-        },
-        {
-          "name": "vault",
-          "writable": true
-        },
-        {
-          "name": "yes_metadata",
-          "writable": true
-        },
-        {
-          "name": "no_metadata",
-          "writable": true
-        },
-        {
-          "name": "token_metadata_program"
-        },
-        {
-          "name": "system_program"
-        },
-        {
-          "name": "token_program"
-        },
-        {
-          "name": "rent"
-        }
-      ],
-      "args": [
-        {
-          "name": "market_id",
-          "type": "u64"
-        },
-        {
-          "name": "end_ts",
-          "type": "i64"
-        },
-        {
-          "name": "name",
-          "type": "string"
-        }
-      ]
-    },
-    {
-      "name": "deposit_liquidity",
-      "discriminator": [
-        245,
-        99,
-        59,
-        25,
-        151,
-        71,
-        233,
-        249
-      ],
-      "accounts": [
-        {
-          "name": "signer",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "market",
-          "writable": true
-        },
-        {
-          "name": "collateral_mint"
-        },
-        {
-          "name": "vault",
-          "writable": true
-        },
-        {
-          "name": "user_collateral",
-          "writable": true
-        },
-        {
-          "name": "lp_position",
-          "writable": true
-        },
-        {
-          "name": "system_program"
-        },
-        {
-          "name": "token_program"
-        }
-      ],
-      "args": [
-        {
-          "name": "amount",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "swap",
-      "discriminator": [
-        248,
-        198,
-        158,
-        145,
-        225,
-        117,
-        135,
-        200
-      ],
-      "accounts": [
-        {
-          "name": "signer",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "market",
-          "writable": true
-        },
-        {
-          "name": "collateral_mint"
-        },
-        {
-          "name": "yes_mint",
-          "writable": true
-        },
-        {
-          "name": "no_mint",
-          "writable": true
-        },
-        {
-          "name": "vault",
-          "writable": true
-        },
-        {
-          "name": "user_collateral",
-          "writable": true
-        },
-        {
-          "name": "user_yes",
-          "writable": true
-        },
-        {
-          "name": "user_no",
-          "writable": true
-        },
-        {
-          "name": "token_program"
-        }
-      ],
-      "args": [
-        {
-          "name": "direction",
-          "type": {
-            "defined": {
-              "name": "SwapDirection"
-            }
-          }
-        },
-        {
-          "name": "amount_in",
-          "type": "u64"
-        },
-        {
-          "name": "min_output",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "withdraw_liquidity",
-      "discriminator": [
-        149,
-        158,
-        33,
-        185,
-        47,
-        243,
-        253,
-        31
-      ],
-      "accounts": [
-        {
-          "name": "signer",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "market",
-          "writable": true
-        },
-        {
-          "name": "collateral_mint"
-        },
-        {
-          "name": "yes_mint",
-          "writable": true
-        },
-        {
-          "name": "no_mint",
-          "writable": true
-        },
-        {
-          "name": "lp_position",
-          "writable": true
-        },
-        {
-          "name": "user_yes",
-          "writable": true
-        },
-        {
-          "name": "user_no",
-          "writable": true
-        },
-        {
-          "name": "token_program"
-        }
-      ],
-      "args": [
-        {
-          "name": "shares_to_burn",
-          "type": "u128"
-        }
-      ]
-    },
-    {
       "name": "accrue",
+      "docs": [
+        "Permissionless dC_t accrual. Anyone can trigger to release tokens",
+        "from the pool as L_eff decreases over time."
+      ],
       "discriminator": [
         23,
         76,
@@ -284,6 +33,10 @@
     },
     {
       "name": "claim_lp_residuals",
+      "docs": [
+        "Claim pending YES+NO residuals accrued to an LP position.",
+        "Allowed at any time, including after resolution."
+      ],
       "discriminator": [
         245,
         137,
@@ -305,15 +58,40 @@
         },
         {
           "name": "yes_mint",
-          "writable": true
+          "writable": true,
+          "relations": [
+            "market"
+          ]
         },
         {
           "name": "no_mint",
-          "writable": true
+          "writable": true,
+          "relations": [
+            "market"
+          ]
         },
         {
           "name": "lp_position",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  112
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              }
+            ]
+          }
         },
         {
           "name": "user_yes",
@@ -324,13 +102,346 @@
           "writable": true
         },
         {
-          "name": "token_program"
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
       ],
       "args": []
     },
     {
+      "name": "claim_winnings",
+      "docs": [
+        "Burn all user tokens (winning + losing), pay winning side at 1 USDC each.",
+        "Only callable post-resolution. Burns both sides atomically."
+      ],
+      "discriminator": [
+        161,
+        215,
+        24,
+        59,
+        14,
+        236,
+        242,
+        221
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market"
+        },
+        {
+          "name": "collateral_mint",
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "yes_mint",
+          "writable": true,
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "no_mint",
+          "writable": true,
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "user_yes",
+          "docs": [
+            "User's YES token account."
+          ],
+          "writable": true
+        },
+        {
+          "name": "user_no",
+          "docs": [
+            "User's NO token account."
+          ],
+          "writable": true
+        },
+        {
+          "name": "user_collateral",
+          "docs": [
+            "User's USDC token account."
+          ],
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "deposit_liquidity",
+      "docs": [
+        "Deposit USDC as liquidity. First deposit bootstraps L_0 at 50/50 price.",
+        "Subsequent deposits scale L_0 proportionally to preserve the current price."
+      ],
+      "discriminator": [
+        245,
+        99,
+        59,
+        25,
+        151,
+        71,
+        233,
+        249
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "collateral_mint",
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "user_collateral",
+          "writable": true
+        },
+        {
+          "name": "lp_position",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  112
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "initialize_market",
+      "docs": [
+        "Create a new prediction market with YES/NO mints, a USDC vault,",
+        "and Metaplex token metadata for wallet display."
+      ],
+      "discriminator": [
+        35,
+        35,
+        189,
+        193,
+        155,
+        48,
+        170,
+        203
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "market_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "collateral_mint",
+          "docs": [
+            "The collateral mint (USDC or mock). Must have 6 decimals."
+          ]
+        },
+        {
+          "name": "yes_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  121,
+                  101,
+                  115,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "no_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "yes_metadata",
+          "writable": true
+        },
+        {
+          "name": "no_metadata",
+          "writable": true
+        },
+        {
+          "name": "token_metadata_program",
+          "address": "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "market_id",
+          "type": "u64"
+        },
+        {
+          "name": "end_ts",
+          "type": "i64"
+        },
+        {
+          "name": "name",
+          "type": "string"
+        }
+      ]
+    },
+    {
       "name": "redeem_pair",
+      "docs": [
+        "Burn 1 YES + 1 NO to receive 1 USDC. Always valid, pre- or post-resolution."
+      ],
       "discriminator": [
         157,
         102,
@@ -351,19 +462,31 @@
           "name": "market"
         },
         {
-          "name": "collateral_mint"
+          "name": "collateral_mint",
+          "relations": [
+            "market"
+          ]
         },
         {
           "name": "yes_mint",
-          "writable": true
+          "writable": true,
+          "relations": [
+            "market"
+          ]
         },
         {
           "name": "no_mint",
-          "writable": true
+          "writable": true,
+          "relations": [
+            "market"
+          ]
         },
         {
           "name": "vault",
-          "writable": true
+          "writable": true,
+          "relations": [
+            "market"
+          ]
         },
         {
           "name": "user_yes",
@@ -378,7 +501,8 @@
           "writable": true
         },
         {
-          "name": "token_program"
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
       ],
       "args": [
@@ -389,35 +513,11 @@
       ]
     },
     {
-      "name": "suggest_l_zero",
-      "discriminator": [
-        145,
-        111,
-        214,
-        80,
-        83,
-        92,
-        179,
-        105
-      ],
-      "accounts": [
-        {
-          "name": "market"
-        }
-      ],
-      "args": [
-        {
-          "name": "budget_usdc",
-          "type": "u64"
-        },
-        {
-          "name": "sigma_bps",
-          "type": "u64"
-        }
-      ]
-    },
-    {
       "name": "resolve_market",
+      "docs": [
+        "Resolve the market after expiration. Authority-only.",
+        "Triggers final accrual and sets the winning side."
+      ],
       "discriminator": [
         155,
         23,
@@ -450,61 +550,212 @@
       ]
     },
     {
-      "name": "claim_winnings",
+      "name": "suggest_l_zero",
+      "docs": [
+        "View-only: compute the optimal L_0 for a given USDC budget.",
+        "Emits a `LZeroSuggestion` event. Composable via CPI for auto-LP vaults."
+      ],
       "discriminator": [
-        161,
-        215,
-        24,
-        59,
-        14,
-        236,
-        242,
-        221
+        145,
+        111,
+        214,
+        80,
+        83,
+        92,
+        179,
+        105
       ],
       "accounts": [
         {
-          "name": "signer",
-          "signer": true
-        },
-        {
           "name": "market"
-        },
-        {
-          "name": "collateral_mint"
-        },
-        {
-          "name": "winning_mint",
-          "docs": [
-            "The winning side's mint (YES or NO depending on resolution)."
-          ],
-          "writable": true
-        },
-        {
-          "name": "vault",
-          "writable": true
-        },
-        {
-          "name": "user_winning",
-          "docs": [
-            "User's winning token account."
-          ],
-          "writable": true
-        },
-        {
-          "name": "user_collateral",
-          "docs": [
-            "User's USDC token account."
-          ],
-          "writable": true
-        },
-        {
-          "name": "token_program"
         }
       ],
       "args": [
         {
-          "name": "amount",
+          "name": "budget_usdc",
           "type": "u64"
+        },
+        {
+          "name": "sigma_bps",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "swap",
+      "docs": [
+        "Swap between USDC, YES, and NO tokens (6 directions).",
+        "Updates reserves and enforces the pm-AMM invariant."
+      ],
+      "discriminator": [
+        248,
+        198,
+        158,
+        145,
+        225,
+        117,
+        135,
+        200
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "collateral_mint",
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "yes_mint",
+          "writable": true,
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "no_mint",
+          "writable": true,
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "user_collateral",
+          "writable": true
+        },
+        {
+          "name": "user_yes",
+          "writable": true
+        },
+        {
+          "name": "user_no",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "direction",
+          "type": {
+            "defined": {
+              "name": "SwapDirection"
+            }
+          }
+        },
+        {
+          "name": "amount_in",
+          "type": "u64"
+        },
+        {
+          "name": "min_output",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "withdraw_liquidity",
+      "docs": [
+        "Withdraw LP shares: auto-claims pending residuals, then mints",
+        "proportional YES+NO tokens from the pool reserves."
+      ],
+      "discriminator": [
+        149,
+        158,
+        33,
+        185,
+        47,
+        243,
+        253,
+        31
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "collateral_mint",
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "yes_mint",
+          "writable": true,
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "no_mint",
+          "writable": true,
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "lp_position",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  112
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_yes",
+          "writable": true
+        },
+        {
+          "name": "user_no",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "shares_to_burn",
+          "type": "u128"
         }
       ]
     }
@@ -537,29 +788,127 @@
       ]
     }
   ],
+  "events": [
+    {
+      "name": "LZeroSuggestion",
+      "discriminator": [
+        177,
+        83,
+        48,
+        170,
+        82,
+        64,
+        221,
+        54
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "MarketAlreadyResolved",
+      "msg": "Market already resolved"
+    },
+    {
+      "code": 6001,
+      "name": "MarketNotResolved",
+      "msg": "Market not yet resolved"
+    },
+    {
+      "code": 6002,
+      "name": "MarketExpired",
+      "msg": "Market has expired"
+    },
+    {
+      "code": 6003,
+      "name": "MarketNotExpired",
+      "msg": "Market has not expired yet"
+    },
+    {
+      "code": 6004,
+      "name": "InsufficientLiquidity",
+      "msg": "Insufficient liquidity or balance"
+    },
+    {
+      "code": 6005,
+      "name": "SlippageExceeded",
+      "msg": "Slippage tolerance exceeded"
+    },
+    {
+      "code": 6006,
+      "name": "Unauthorized",
+      "msg": "Unauthorized"
+    },
+    {
+      "code": 6007,
+      "name": "InvalidPrice",
+      "msg": "Invalid price: must be in (0, 1)"
+    },
+    {
+      "code": 6008,
+      "name": "MathOverflow",
+      "msg": "Math overflow"
+    },
+    {
+      "code": 6009,
+      "name": "NoResidualsToClaim",
+      "msg": "No residuals to claim"
+    },
+    {
+      "code": 6010,
+      "name": "InvalidDuration",
+      "msg": "Invalid duration"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidBudget",
+      "msg": "Invalid budget or amount"
+    },
+    {
+      "code": 6012,
+      "name": "InvalidWinningMint",
+      "msg": "Invalid winning mint: does not match resolved side"
+    },
+    {
+      "code": 6013,
+      "name": "InsufficientVault",
+      "msg": "Insufficient vault balance"
+    },
+    {
+      "code": 6014,
+      "name": "InvalidName",
+      "msg": "Invalid name: must be 1-64 bytes"
+    }
+  ],
   "types": [
     {
-      "name": "SwapDirection",
+      "name": "LZeroSuggestion",
       "type": {
-        "kind": "enum",
-        "variants": [
+        "kind": "struct",
+        "fields": [
           {
-            "name": "UsdcToYes"
+            "name": "market",
+            "type": "pubkey"
           },
           {
-            "name": "UsdcToNo"
+            "name": "suggested_l_zero",
+            "type": "u128"
           },
           {
-            "name": "YesToUsdc"
+            "name": "estimated_pool_value",
+            "type": "u64"
           },
           {
-            "name": "NoToUsdc"
+            "name": "estimated_daily_lvr",
+            "type": "u64"
           },
           {
-            "name": "YesToNo"
+            "name": "warning_high_sigma",
+            "type": "bool"
           },
           {
-            "name": "NoToYes"
+            "name": "warning_short_duration",
+            "type": "bool"
           }
         ]
       }
@@ -707,6 +1056,35 @@
           },
           {
             "name": "No"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SwapDirection",
+      "docs": [
+        "Direction of a swap. Six combinations covering all USDC/YES/NO pairs."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "UsdcToYes"
+          },
+          {
+            "name": "UsdcToNo"
+          },
+          {
+            "name": "YesToUsdc"
+          },
+          {
+            "name": "NoToUsdc"
+          },
+          {
+            "name": "YesToNo"
+          },
+          {
+            "name": "NoToYes"
           }
         ]
       }

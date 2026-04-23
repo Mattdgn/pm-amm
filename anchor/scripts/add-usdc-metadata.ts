@@ -7,7 +7,7 @@
  *   pnpm exec ts-node --transpile-only -P ./tsconfig.json scripts/add-usdc-metadata.ts
  */
 
-import * as anchor from "@coral-xyz/anchor";
+import * as anchor from "@anchor-lang/core";
 import { PublicKey, TransactionInstruction, Transaction } from "@solana/web3.js";
 
 const USDC_MINT = new PublicKey("8m8VRDdvuxE4MQZBX8RqKMpuwqBYTQiME7n85Mw73j6A");

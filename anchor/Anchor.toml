@@ -1,6 +1,6 @@
 [toolchain]
 package_manager = "pnpm"
-anchor_version = "0.31.1"
+anchor_version = "1.0.1"
 solana_version = "3.0.14"
 
 [features]
@@ -8,13 +8,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-pm_amm = "GQGSTV9dig5fEwcfMpgqHjo9jAhxtnusMEbx8SrBBYnQ"
+pm_amm = "8V872cTKfH1gC5zBvQhrQN2DXSmRNokPPjPsBE46MZNj"
 
 [programs.devnet]
-pm_amm = "GQGSTV9dig5fEwcfMpgqHjo9jAhxtnusMEbx8SrBBYnQ"
-
-[registry]
-url = "https://api.apr.dev"
+pm_amm = "8V872cTKfH1gC5zBvQhrQN2DXSmRNokPPjPsBE46MZNj"
 
 [provider]
 cluster = "localnet"

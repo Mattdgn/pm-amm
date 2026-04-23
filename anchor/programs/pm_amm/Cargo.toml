@@ -12,12 +12,10 @@ name = "pm_amm"
 default = []
 cpi = ["no-entrypoint"]
 no-entrypoint = []
-no-idl = []
 no-log-ix-name = []
 idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 
 [dependencies]
-anchor-lang = { version = "0.31", features = ["init-if-needed"] }
-anchor-spl = "0.31"
+anchor-lang = { version = "1.0", features = ["init-if-needed"] }
+anchor-spl = { version = "1.0", features = ["metadata"] }
 fixed = "1"
-mpl-token-metadata = "5"

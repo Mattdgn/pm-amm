@@ -13,7 +13,7 @@
  * Note: only works if your wallet is the mint authority for the mock USDC.
  */
 
-import * as anchor from "@coral-xyz/anchor";
+import * as anchor from "@anchor-lang/core";
 import { PublicKey } from "@solana/web3.js";
 import {
   createAssociatedTokenAccountInstruction,
