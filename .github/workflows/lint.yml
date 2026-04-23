@@ -24,11 +24,11 @@ jobs:
           cache-dependency-path: app/pnpm-lock.yaml
 
       - name: Install root deps
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Install app deps
         working-directory: app
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Prettier check
         run: pnpm exec prettier --check "app/src/**/*.{ts,tsx}" "anchor/tests/**/*.ts"

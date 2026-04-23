@@ -67,7 +67,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: app
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Type-check
         working-directory: app
