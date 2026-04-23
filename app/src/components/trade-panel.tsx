@@ -46,7 +46,8 @@ export function TradePanel({
   const rawAmount = mode === "buy" ? amountNum : amountNum * 1e6;
 
   const { data: quote, isLoading: quoteLoading } = useSwapQuote(
-    market.publicKey, side, mode, sellExceeds ? 0 : rawAmount
+    market.publicKey, side, mode, sellExceeds ? 0 : rawAmount,
+    { reserveYes: market.reserveYes, reserveNo: market.reserveNo, lEff: market.lEff },
   );
 
   const minOutput = quote?.output
@@ -238,10 +239,29 @@ export function TradePanel({
                   ? (side === "yes" ? market.price : 1 - market.price)
                   : (side === "yes" ? market.price : 1 - market.price);
                 const slippage = fairP > 0 ? Math.abs(avgP - fairP) / fairP * 100 : 0;
+
+                // Potential profit if this side wins
+                const cost = amountNum * 1e6; // USDC paid
+                const tokensReceived = quote.output; // tokens you get
+                // If YES wins: each YES = 1 USDC. Profit = tokens - cost
+                const potentialPayout = mode === "buy" ? tokensReceived : quote.output;
+                const potentialProfit = mode === "buy" ? tokensReceived - cost : 0;
+                const profitPct = cost > 0 && mode === "buy" ? (potentialProfit / cost) * 100 : 0;
+
                 return (
                   <>
                     <MetaRow label="You receive" value={`${outputDisplay} ${outputUnit}`} />
                     <MetaRow label="Avg price" value={`${avgP.toFixed(4)} USDC/${side.toUpperCase()}`} />
+                    {mode === "buy" && potentialProfit > 0 && (
+                      <MetaRow
+                        label={`If ${side.toUpperCase()} wins`}
+                        value={
+                          <span className="text-yes">
+                            +${formatUsdc(potentialProfit)} ({profitPct.toFixed(0)}%)
+                          </span>
+                        }
+                      />
+                    )}
                     <MetaRow label="Slippage" value={`${slippage.toFixed(1)}%`} />
                     {slippage > 5 && (
                       <div className="text-[11px] font-mono py-[6px] px-[8px] mt-[4px] border rounded-sm border-[color-mix(in_oklch,var(--no)_40%,transparent)] bg-[color-mix(in_oklch,var(--no)_8%,transparent)] text-no">

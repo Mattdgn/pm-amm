@@ -8,6 +8,8 @@ import { Program, BN } from "@anchor-lang/core";
 import idl from "@/lib/pm_amm_idl.json";
 import { USDC_MINT } from "@/lib/constants";
 import { deriveYesMint, deriveNoMint, deriveVault } from "@/lib/pda";
+import { estimateSwapOutput } from "@/lib/pm-math";
+import type { MarketData } from "@/hooks/use-markets";
 
 export type SwapMode = "buy" | "sell";
 
@@ -25,7 +27,8 @@ export function useSwapQuote(
   marketPda: string | undefined,
   side: "yes" | "no",
   mode: SwapMode,
-  amount: number
+  amount: number,
+  reserves?: { reserveYes: number; reserveNo: number; lEff: number },
 ) {
   const { connection } = useConnection();
   const { publicKey } = useWallet();
@@ -110,6 +113,17 @@ export function useSwapQuote(
         const sim = await connection.simulateTransaction(tx, undefined, [outputAta]);
 
         if (sim.value.err) {
+          // Fallback to client-side estimate when simulation fails
+          // (e.g. wallet has no ATAs yet — common for first-time traders)
+          if (reserves && mode === "buy" && reserves.lEff > 0) {
+            const est = estimateSwapOutput(
+              reserves.reserveYes, reserves.reserveNo, reserves.lEff,
+              lamports, side,
+            );
+            if (est.output > 0) {
+              return { output: Math.floor(est.output), error: null };
+            }
+          }
           const logs = sim.value.logs?.filter((l: string) => l.includes("Error") || l.includes("failed")) ?? [];
           const detail = logs.length > 0 ? logs[logs.length - 1] : JSON.stringify(sim.value.err);
           console.warn("[swap-quote] sim failed:", JSON.stringify(sim.value.err), logs);
