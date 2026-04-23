@@ -2,10 +2,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useConnection } from "@solana/wallet-adapter-react";
-import { Program } from "@coral-xyz/anchor";
+import { Program } from "@anchor-lang/core";
 import idl from "@/lib/pm_amm_idl.json";
 import { PROGRAM_ID } from "@/lib/constants";
-import { priceFromReserves } from "@/lib/pm-math";
+import { priceFromReserves, i80f48ToNumber } from "@/lib/pm-math";
 
 export interface MarketData {
   publicKey: string;
@@ -22,12 +22,6 @@ export interface MarketData {
   winningSide: number;
   price: number;
   lEff: number;
-}
-
-function i80f48ToNumber(raw: any): number {
-  // Anchor deserializes u128 as BN. Convert Q64.64 to float.
-  const bn = typeof raw === "bigint" ? raw : BigInt(raw.toString());
-  return Number(bn) / 2 ** 48;
 }
 
 export function useMarkets() {
@@ -51,9 +45,11 @@ export function useMarkets() {
         const lEff = lZero * Math.sqrt(remaining);
         const x = i80f48ToNumber(m.reserveYes);
         const y = i80f48ToNumber(m.reserveNo);
-        const price = lEff > 0 && (x > 0 || y > 0)
-          ? priceFromReserves(x, y, lEff)
-          : 0.5;
+        const price = m.resolved
+          ? (m.winningSide === 1 ? 1 : m.winningSide === 2 ? 0 : 0.5)
+          : lEff > 0 && (x > 0 || y > 0)
+            ? priceFromReserves(x, y, lEff)
+            : 0.5;
 
         // Decode name: [u8; 64] → trim trailing zeros → UTF-8 string
         const nameBytes: number[] = m.name ?? [];

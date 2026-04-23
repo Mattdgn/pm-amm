@@ -111,7 +111,12 @@ pub fn compute_accrual(market: &Market, now: i64) -> Result<AccrualResult> {
     // Current reserves and price
     let x_old = market.reserve_yes_fixed();
     let y_old = market.reserve_no_fixed();
-    let price = pm_math::price_from_reserves(x_old, y_old, l_eff_old)?;
+    let raw_price = pm_math::price_from_reserves(x_old, y_old, l_eff_old)?;
+
+    // Clamp price to valid range for Phi_inv (avoids InvalidPrice at extremes)
+    let p_min = crate::pm_math::PRICE_LOWER_BOUND;
+    let p_max = crate::pm_math::PRICE_UPPER_BOUND;
+    let price = raw_price.max(p_min).min(p_max);
 
     // New reserves at same price but lower L_eff
     let (x_new, y_new) = pm_math::reserves_from_price(price, l_eff_new)?;
@@ -543,7 +548,7 @@ mod tests {
         apply_accrual(&mut market, &r1);
 
         // Pending should equal released (single LP owns all shares)
-        let (py, pn) = compute_lp_pending(
+        let (py, _pn) = compute_lp_pending(
             lp_shares, cp_yes, cp_no,
             market.cum_yes_per_share_fixed(),
             market.cum_no_per_share_fixed(),

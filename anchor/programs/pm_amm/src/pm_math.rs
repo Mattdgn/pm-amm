@@ -30,6 +30,31 @@ const ONE: I80F48 = I80F48::ONE;
 const TWO: I80F48 = I80F48::lit("2");
 const HALF: I80F48 = I80F48::lit("0.5");
 
+/// Bounds for exp() input to prevent overflow/underflow
+const EXP_LOWER_BOUND: I80F48 = I80F48::lit("-20");
+const EXP_UPPER_BOUND: I80F48 = I80F48::lit("20");
+
+/// Maximum iterations for range reduction in exp/ln
+const MAX_RANGE_REDUCTIONS: u32 = 30;
+
+/// Convergence threshold for Newton/Taylor methods (approx 1e-13)
+const NEWTON_EPSILON: I80F48 = I80F48::lit("0.0000000000001");
+
+/// phi(z)/Phi(z) cutoff — beyond |z| > 8, values are negligible
+const TAIL_CUTOFF: I80F48 = I80F48::lit("8");
+
+/// Binary search bounds for z in reserve/price calculations
+const Z_SEARCH_MIN: I80F48 = I80F48::lit("-6");
+const Z_SEARCH_MAX: I80F48 = I80F48::lit("6");
+
+/// Z-clamp bounds for direct swap calculations (avoids LUT edge cases)
+const Z_CLAMP_LO: I80F48 = I80F48::lit("-5.9");
+const Z_CLAMP_HI: I80F48 = I80F48::lit("5.9");
+
+/// Price bounds for Phi_inv — avoid extreme Gaussian tails
+pub const PRICE_LOWER_BOUND: I80F48 = I80F48::lit("0.0001");
+pub const PRICE_UPPER_BOUND: I80F48 = I80F48::lit("0.9999");
+
 // ============================================================================
 // 1. Primitives
 // ============================================================================
@@ -40,10 +65,10 @@ const HALF: I80F48 = I80F48::lit("0.5");
 /// Uses range reduction: exp(x) = exp(x/2^k)^(2^k) for |x| > 1.
 #[inline(always)]
 pub fn exp_fixed(x: I80F48) -> Result<I80F48> {
-    if x < I80F48::lit("-20") {
+    if x < EXP_LOWER_BOUND {
         return Ok(ZERO); // underflow to 0 — safe for phi/erf
     }
-    if x > I80F48::lit("20") {
+    if x > EXP_UPPER_BOUND {
         return err!(PmAmmError::MathOverflow);
     }
 
@@ -53,7 +78,7 @@ pub fn exp_fixed(x: I80F48) -> Result<I80F48> {
     while r > ONE || r < (ZERO - ONE) {
         r = r / TWO;
         k += 1;
-        if k > 30 {
+        if k > MAX_RANGE_REDUCTIONS {
             return err!(PmAmmError::MathOverflow);
         }
     }
@@ -65,8 +90,8 @@ pub fn exp_fixed(x: I80F48) -> Result<I80F48> {
         term = term * r / I80F48::from_num(n);
         sum = sum + term;
         // Early exit if term is negligible
-        if term > ZERO - I80F48::lit("0.0000000000001")
-            && term < I80F48::lit("0.0000000000001")
+        if term > ZERO - NEWTON_EPSILON
+            && term < NEWTON_EPSILON
         {
             break;
         }
@@ -108,7 +133,7 @@ pub fn sqrt_fixed(x: I80F48) -> Result<I80F48> {
         let next = (guess + x / guess) / TWO;
         // Early exit if converged
         let diff = if next > guess { next - guess } else { guess - next };
-        if diff < I80F48::lit("0.0000000000001") {
+        if diff < NEWTON_EPSILON {
             return Ok(next);
         }
         guess = next;
@@ -194,8 +219,7 @@ pub fn erf_fixed(x: I80F48) -> Result<I80F48> {
 /// Returns 0 for |z| > 8 (phi(8) ≈ 5e-16, negligible).
 #[inline(always)]
 pub fn phi_fixed(z: I80F48) -> Result<I80F48> {
-    let eight = I80F48::lit("8");
-    if z > eight || z < ZERO - eight {
+    if z > TAIL_CUTOFF || z < ZERO - TAIL_CUTOFF {
         return Ok(ZERO);
     }
     let neg_half_z2 = ZERO - z * z / TWO;
@@ -207,11 +231,10 @@ pub fn phi_fixed(z: I80F48) -> Result<I80F48> {
 /// Returns 0 for z < -8, 1 for z > 8.
 #[inline(always)]
 pub fn capital_phi_fixed(z: I80F48) -> Result<I80F48> {
-    let eight = I80F48::lit("8");
-    if z < ZERO - eight {
+    if z < ZERO - TAIL_CUTOFF {
         return Ok(ZERO);
     }
-    if z > eight {
+    if z > TAIL_CUTOFF {
         return Ok(ONE);
     }
     let arg = z / SQRT_2;
@@ -223,9 +246,7 @@ pub fn capital_phi_fixed(z: I80F48) -> Result<I80F48> {
 /// Uses central region for 0.02425 <= p <= 0.97575, tail otherwise.
 /// Refined with 2 Newton iterations for ~1e-8 accuracy.
 pub fn capital_phi_inv_fixed(p: I80F48) -> Result<I80F48> {
-    let p_min = I80F48::lit("0.0001");
-    let p_max = I80F48::lit("0.9999");
-    if p < p_min || p > p_max {
+    if p < PRICE_LOWER_BOUND || p > PRICE_UPPER_BOUND {
         return err!(PmAmmError::InvalidPrice);
     }
 
@@ -398,8 +419,8 @@ fn xy_from_u_fast(u: I80F48, l_eff: I80F48) -> (I80F48, I80F48) {
 /// Find x given y_target: binary search on u using LUT (fast).
 /// 20 iterations → precision ~12/2^20 ≈ 1e-5 (sufficient for 6 decimals).
 fn find_x_from_y(y_target: I80F48, l_eff: I80F48) -> Result<I80F48> {
-    let mut lo = I80F48::lit("-6");
-    let mut hi = I80F48::lit("6");
+    let mut lo = Z_SEARCH_MIN;
+    let mut hi = Z_SEARCH_MAX;
 
     for _ in 0..20 {
         let mid = (lo + hi) / TWO;
@@ -418,8 +439,8 @@ fn find_x_from_y(y_target: I80F48, l_eff: I80F48) -> Result<I80F48> {
 
 /// Find y given x_target: binary search on u using LUT (fast).
 fn find_y_from_x(x_target: I80F48, l_eff: I80F48) -> Result<I80F48> {
-    let mut lo = I80F48::lit("-6");
-    let mut hi = I80F48::lit("6");
+    let mut lo = Z_SEARCH_MIN;
+    let mut hi = Z_SEARCH_MAX;
 
     for _ in 0..20 {
         let mid = (lo + hi) / TWO;
@@ -467,15 +488,15 @@ pub fn compute_swap_output(
         (SwapSide::Yes, SwapSide::Usdc) => {
             // new_z IS Phi_inv(P_new), use LUT directly — avoids expensive
             // Phi(z) → Phi_inv(Phi(z)) round-trip that blows CU budget.
-            let z_clamp_lo = I80F48::lit("-5.9");
-            let z_clamp_hi = I80F48::lit("5.9");
+            let z_clamp_lo = Z_CLAMP_LO;
+            let z_clamp_hi = Z_CLAMP_HI;
             let new_z = (((y - x) - delta_in) / l_eff).max(z_clamp_lo).min(z_clamp_hi);
             let (xn, yn) = xy_from_u_fast(new_z, l_eff);
             (y - yn, xn, yn)
         }
         (SwapSide::No, SwapSide::Usdc) => {
-            let z_clamp_lo = I80F48::lit("-5.9");
-            let z_clamp_hi = I80F48::lit("5.9");
+            let z_clamp_lo = Z_CLAMP_LO;
+            let z_clamp_hi = Z_CLAMP_HI;
             let new_z = (((y - x) + delta_in) / l_eff).max(z_clamp_lo).min(z_clamp_hi);
             let (xn, yn) = xy_from_u_fast(new_z, l_eff);
             (x - xn, xn, yn)
@@ -1082,7 +1103,6 @@ mod tests {
 
     #[test]
     fn test_property_a_uniform_lvr() {
-        let l = f(1000.0);
         let remaining = 86400 * 6; // 6 days remaining
         let l_eff = l_effective(f(10.0), remaining).unwrap();
         let expected_ratio: f64 = 1.0 / (2.0 * remaining as f64);

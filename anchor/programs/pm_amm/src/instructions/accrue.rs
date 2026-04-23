@@ -11,6 +11,7 @@ pub struct Accrue<'info> {
     pub market: Box<Account<'info, Market>>,
 }
 
+/// Permissionless accrual — anyone can trigger dC_t redistribution.
 pub fn handler(ctx: Context<Accrue>) -> Result<()> {
     let clock = Clock::get()?;
     let market = &mut ctx.accounts.market;
@@ -19,9 +20,9 @@ pub fn handler(ctx: Context<Accrue>) -> Result<()> {
     accrual::apply_accrual(market, &result);
 
     if !result.is_noop {
-        let yr: f64 = result.yes_released.to_num();
-        let nr: f64 = result.no_released.to_num();
-        msg!("Accrued: yes={}, no={}", yr as u64, nr as u64);
+        let yr: u64 = result.yes_released.saturating_to_num();
+        let nr: u64 = result.no_released.saturating_to_num();
+        msg!("Accrued: yes={}, no={}", yr, nr);
     }
 
     Ok(())

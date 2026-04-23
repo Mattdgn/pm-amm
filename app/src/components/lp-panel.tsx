@@ -9,7 +9,7 @@ import { useProgram } from "@/hooks/use-program";
 import { useLpPosition } from "@/hooks/use-lp-position";
 import { formatUsdc } from "@/lib/pm-math";
 import type { MarketData } from "@/hooks/use-markets";
-import { PublicKey, ComputeBudgetProgram, SystemProgram } from "@solana/web3.js";
+import { PublicKey, ComputeBudgetProgram, SystemProgram, type TransactionInstruction } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
   getAssociatedTokenAddress,
@@ -17,7 +17,8 @@ import {
   getAccount,
 } from "@solana/spl-token";
 import { USDC_MINT, solscanTxUrl } from "@/lib/constants";
-import { BN } from "@coral-xyz/anchor";
+import { deriveYesMint, deriveNoMint, deriveVault, deriveLpPosition } from "@/lib/pda";
+import { BN } from "@anchor-lang/core";
 import { toast } from "sonner";
 
 export function LpPanel({ market }: { market: MarketData }) {
@@ -28,10 +29,7 @@ export function LpPanel({ market }: { market: MarketData }) {
   const { data: lp } = useLpPosition(market.publicKey);
 
   const marketPda = new PublicKey(market.publicKey);
-  const vaultPda = PublicKey.findProgramAddressSync(
-    [Buffer.from("vault"), marketPda.toBuffer()],
-    new PublicKey(program?.programId ?? USDC_MINT)
-  )[0];
+  const vaultPda = deriveVault(marketPda);
 
   const handleDeposit = async () => {
     if (!program || !publicKey || !depositAmt) return;
@@ -39,10 +37,7 @@ export function LpPanel({ market }: { market: MarketData }) {
     try {
       const lamports = Math.floor(parseFloat(depositAmt) * 1e6);
       const userUsdc = await getAssociatedTokenAddress(USDC_MINT, publicKey);
-      const [lpPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("lp"), marketPda.toBuffer(), publicKey.toBuffer()],
-        program.programId
-      );
+      const lpPda = deriveLpPosition(marketPda, publicKey);
       const tx = await (program.methods as any)
         .depositLiquidity(new BN(lamports))
         .accounts({
@@ -56,8 +51,10 @@ export function LpPanel({ market }: { market: MarketData }) {
         action: { label: "Solscan ↗", onClick: () => window.open(solscanTxUrl(tx), "_blank") },
       });
       setDepositAmt("");
-    } catch (err: any) {
-      toast.error("Deposit failed", { description: err.message?.slice(0, 120) });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("WalletSign") || msg.includes("User rejected")) { toast.info("Transaction cancelled"); setLoading(false); return; }
+      toast.error("Deposit failed", { description: msg.slice(0, 120) });
     } finally {
       setLoading(false);
     }
@@ -67,20 +64,15 @@ export function LpPanel({ market }: { market: MarketData }) {
     if (!program || !publicKey || !lp) return;
     setLoading(true);
     try {
-      const yesMint = PublicKey.findProgramAddressSync(
-        [Buffer.from("yes_mint"), marketPda.toBuffer()], program.programId)[0];
-      const noMint = PublicKey.findProgramAddressSync(
-        [Buffer.from("no_mint"), marketPda.toBuffer()], program.programId)[0];
+      const yesMint = deriveYesMint(marketPda);
+      const noMint = deriveNoMint(marketPda);
       const userYes = await getAssociatedTokenAddress(yesMint, publicKey);
       const userNo = await getAssociatedTokenAddress(noMint, publicKey);
-      const [lpPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("lp"), marketPda.toBuffer(), publicKey.toBuffer()],
-        program.programId
-      );
+      const lpPda = deriveLpPosition(marketPda, publicKey);
 
       // Ensure YES/NO ATAs exist (may have been closed after a sell)
       const conn = program.provider.connection;
-      const preIxs: any[] = [ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })];
+      const preIxs: TransactionInstruction[] = [ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })];
       for (const [ata, mint] of [[userYes, yesMint], [userNo, noMint]] as [PublicKey, PublicKey][]) {
         try { await getAccount(conn, ata); } catch {
           preIxs.push(createAssociatedTokenAccountInstruction(publicKey, ata, publicKey, mint));
@@ -92,7 +84,7 @@ export function LpPanel({ market }: { market: MarketData }) {
         .withdrawLiquidity(sharesBn)
         .accounts({
           signer: publicKey, market: marketPda, collateralMint: USDC_MINT,
-          yesMint, noMint, lpPosition: lpPda, userYes, userNo,
+          yesMint: yesMint, noMint: noMint, lpPosition: lpPda, userYes: userYes, userNo: userNo,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .preInstructions(preIxs)
@@ -100,8 +92,10 @@ export function LpPanel({ market }: { market: MarketData }) {
       toast.success("Withdrew all liquidity", {
         action: { label: "Solscan ↗", onClick: () => window.open(solscanTxUrl(tx), "_blank") },
       });
-    } catch (err: any) {
-      toast.error("Withdraw failed", { description: err.message?.slice(0, 120) });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("WalletSign") || msg.includes("User rejected")) { toast.info("Transaction cancelled"); setLoading(false); return; }
+      toast.error("Withdraw failed", { description: msg.slice(0, 120) });
     } finally {
       setLoading(false);
     }

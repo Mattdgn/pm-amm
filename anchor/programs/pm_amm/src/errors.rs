@@ -14,6 +14,10 @@ pub enum PmAmmError {
     MarketNotExpired,
     #[msg("Insufficient liquidity or balance")]
     InsufficientLiquidity,
+    #[msg("Swap output below minimum")]
+    InsufficientOutput,
+    #[msg("Insufficient user token balance")]
+    InsufficientBalance,
     #[msg("Slippage tolerance exceeded")]
     SlippageExceeded,
     #[msg("Unauthorized")]

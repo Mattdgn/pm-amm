@@ -1,6 +1,7 @@
-//! On-chain state: Market, Position, LpPosition.
-//! All Q64.64 fields stored as u128, converted via I80F48 helpers.
-//! Reference: doc/prd.md section 2.2, doc/wp-para.md.
+//! On-chain state for pm-AMM: Market and LpPosition accounts.
+//!
+//! All fixed-point fields use Q64.64 encoding (stored as `u128`, converted via
+//! `I80F48` helpers). See the Paradigm pm-AMM paper for formula references.
 
 use anchor_lang::prelude::*;
 use fixed::types::I80F48;
@@ -88,53 +89,23 @@ impl Market {
 
     // --- Q64.64 helpers ---
 
-    pub fn l_zero_fixed(&self) -> I80F48 {
-        I80F48::from_bits(self.l_zero as i128)
-    }
+    pub fn l_zero_fixed(&self) -> I80F48 { I80F48::from_bits(self.l_zero as i128) }
+    pub fn set_l_zero_fixed(&mut self, v: I80F48) { self.l_zero = v.to_bits() as u128; }
 
-    pub fn set_l_zero_fixed(&mut self, val: I80F48) {
-        self.l_zero = val.to_bits() as u128;
-    }
+    pub fn reserve_yes_fixed(&self) -> I80F48 { I80F48::from_bits(self.reserve_yes as i128) }
+    pub fn set_reserve_yes_fixed(&mut self, v: I80F48) { self.reserve_yes = v.to_bits() as u128; }
 
-    pub fn reserve_yes_fixed(&self) -> I80F48 {
-        I80F48::from_bits(self.reserve_yes as i128)
-    }
+    pub fn reserve_no_fixed(&self) -> I80F48 { I80F48::from_bits(self.reserve_no as i128) }
+    pub fn set_reserve_no_fixed(&mut self, v: I80F48) { self.reserve_no = v.to_bits() as u128; }
 
-    pub fn set_reserve_yes_fixed(&mut self, val: I80F48) {
-        self.reserve_yes = val.to_bits() as u128;
-    }
+    pub fn cum_yes_per_share_fixed(&self) -> I80F48 { I80F48::from_bits(self.cum_yes_per_share as i128) }
+    pub fn set_cum_yes_per_share_fixed(&mut self, v: I80F48) { self.cum_yes_per_share = v.to_bits() as u128; }
 
-    pub fn reserve_no_fixed(&self) -> I80F48 {
-        I80F48::from_bits(self.reserve_no as i128)
-    }
+    pub fn cum_no_per_share_fixed(&self) -> I80F48 { I80F48::from_bits(self.cum_no_per_share as i128) }
+    pub fn set_cum_no_per_share_fixed(&mut self, v: I80F48) { self.cum_no_per_share = v.to_bits() as u128; }
 
-    pub fn set_reserve_no_fixed(&mut self, val: I80F48) {
-        self.reserve_no = val.to_bits() as u128;
-    }
-
-    pub fn cum_yes_per_share_fixed(&self) -> I80F48 {
-        I80F48::from_bits(self.cum_yes_per_share as i128)
-    }
-
-    pub fn set_cum_yes_per_share_fixed(&mut self, val: I80F48) {
-        self.cum_yes_per_share = val.to_bits() as u128;
-    }
-
-    pub fn cum_no_per_share_fixed(&self) -> I80F48 {
-        I80F48::from_bits(self.cum_no_per_share as i128)
-    }
-
-    pub fn set_cum_no_per_share_fixed(&mut self, val: I80F48) {
-        self.cum_no_per_share = val.to_bits() as u128;
-    }
-
-    pub fn total_lp_shares_fixed(&self) -> I80F48 {
-        I80F48::from_bits(self.total_lp_shares as i128)
-    }
-
-    pub fn set_total_lp_shares_fixed(&mut self, val: I80F48) {
-        self.total_lp_shares = val.to_bits() as u128;
-    }
+    pub fn total_lp_shares_fixed(&self) -> I80F48 { I80F48::from_bits(self.total_lp_shares as i128) }
+    pub fn set_total_lp_shares_fixed(&mut self, v: I80F48) { self.total_lp_shares = v.to_bits() as u128; }
 
     /// Return the market name as a UTF-8 string (trailing zeros trimmed).
     pub fn name_str(&self) -> &str {
@@ -147,6 +118,7 @@ impl Market {
         crate::pm_math::l_effective(self.l_zero_fixed(), self.end_ts - now)
     }
 
+    /// Return the resolved winning side, or None if not yet resolved.
     pub fn get_winning_side(&self) -> Option<Side> {
         match self.winning_side {
             1 => Some(Side::Yes),
@@ -155,6 +127,7 @@ impl Market {
         }
     }
 
+    /// Set the winning side (1 = YES, 2 = NO).
     pub fn set_winning_side(&mut self, side: Side) {
         self.winning_side = match side {
             Side::Yes => 1,

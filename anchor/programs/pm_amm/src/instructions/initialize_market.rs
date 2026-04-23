@@ -5,10 +5,10 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
 use anchor_spl::token::{Mint, Token, TokenAccount};
-use mpl_token_metadata::instructions::{
+use anchor_spl::metadata::mpl_token_metadata::instructions::{
     CreateMetadataAccountV3, CreateMetadataAccountV3InstructionArgs,
 };
-use mpl_token_metadata::types::DataV2;
+use anchor_spl::metadata::mpl_token_metadata::types::DataV2;
 
 use crate::errors::PmAmmError;
 use crate::state::Market;
@@ -30,11 +30,11 @@ pub struct InitializeMarket<'info> {
         seeds = [Market::SEED, market_id.to_le_bytes().as_ref()],
         bump,
     )]
-    pub market: Account<'info, Market>,
+    pub market: Box<Account<'info, Market>>,
 
     /// The collateral mint (USDC or mock). Must have 6 decimals.
     #[account(constraint = collateral_mint.decimals == 6 @ PmAmmError::InvalidBudget)]
-    pub collateral_mint: Account<'info, Mint>,
+    pub collateral_mint: Box<Account<'info, Mint>>,
 
     #[account(
         init,
@@ -44,7 +44,7 @@ pub struct InitializeMarket<'info> {
         seeds = [YES_MINT_SEED, market.key().as_ref()],
         bump,
     )]
-    pub yes_mint: Account<'info, Mint>,
+    pub yes_mint: Box<Account<'info, Mint>>,
 
     #[account(
         init,
@@ -54,7 +54,7 @@ pub struct InitializeMarket<'info> {
         seeds = [NO_MINT_SEED, market.key().as_ref()],
         bump,
     )]
-    pub no_mint: Account<'info, Mint>,
+    pub no_mint: Box<Account<'info, Mint>>,
 
     #[account(
         init,
@@ -64,7 +64,7 @@ pub struct InitializeMarket<'info> {
         seeds = [VAULT_SEED, market.key().as_ref()],
         bump,
     )]
-    pub vault: Account<'info, TokenAccount>,
+    pub vault: Box<Account<'info, TokenAccount>>,
 
     /// CHECK: Created via CPI to Metaplex Token Metadata program.
     #[account(mut)]
@@ -75,7 +75,7 @@ pub struct InitializeMarket<'info> {
     pub no_metadata: UncheckedAccount<'info>,
 
     /// CHECK: Metaplex Token Metadata program.
-    #[account(address = mpl_token_metadata::ID)]
+    #[account(address = anchor_spl::metadata::mpl_token_metadata::ID)]
     pub token_metadata_program: UncheckedAccount<'info>,
 
     pub system_program: Program<'info, System>,
@@ -83,8 +83,9 @@ pub struct InitializeMarket<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-pub fn handler<'info>(
-    ctx: Context<'_, '_, 'info, 'info, InitializeMarket<'info>>,
+/// Create a new prediction market with YES/NO mints and USDC vault.
+pub fn handler(
+    ctx: Context<InitializeMarket>,
     market_id: u64,
     end_ts: i64,
     name: String,
@@ -92,7 +93,10 @@ pub fn handler<'info>(
     let clock = Clock::get()?;
     let now = clock.unix_timestamp;
 
-    require!(end_ts > now + 300, PmAmmError::InvalidDuration); // min 5 minutes
+    /// Minimum market duration in seconds (5 minutes).
+    const MIN_DURATION_SECS: i64 = 300;
+
+    require!(end_ts > now + MIN_DURATION_SECS, PmAmmError::InvalidDuration);
     require!(!name.is_empty() && name.len() <= 64, PmAmmError::InvalidName);
 
     let market = &mut ctx.accounts.market;
@@ -173,10 +177,21 @@ pub fn handler<'info>(
     Ok(())
 }
 
+/// Truncate a string to max_bytes without splitting UTF-8 chars.
 fn truncate_str(s: &str, max_len: usize) -> String {
-    if s.len() <= max_len { s.to_string() } else { s[..max_len].to_string() }
+    if s.len() <= max_len {
+        s.to_string()
+    } else {
+        // Find the largest char boundary <= max_len to avoid UTF-8 panic
+        let mut end = max_len;
+        while !s.is_char_boundary(end) && end > 0 {
+            end -= 1;
+        }
+        s[..end].to_string()
+    }
 }
 
+/// CPI to Metaplex to create token metadata for a mint.
 #[allow(clippy::too_many_arguments)]
 fn create_token_metadata<'info>(
     metadata_ai: AccountInfo<'info>,

@@ -8,3 +8,18 @@ test-ledger
 .env
 .env.local
 app/.next
+design_handoff_pmamm_brand
+doc/sprints
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+
+# Coverage
+coverage/
+.nyc_output/

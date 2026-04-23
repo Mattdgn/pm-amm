@@ -3,8 +3,6 @@
 //! Composable: other programs can CPI this to calibrate auto-LP vaults.
 
 use anchor_lang::prelude::*;
-use fixed::types::I80F48;
-
 use crate::errors::PmAmmError;
 use crate::pm_math;
 use crate::state::Market;
@@ -24,6 +22,7 @@ pub struct LZeroSuggestion {
     pub warning_short_duration: bool, // duration < 1 day
 }
 
+/// View instruction: compute optimal L_0 for a given budget and sigma.
 pub fn handler(
     ctx: Context<SuggestLZero>,
     budget_usdc: u64,
@@ -43,13 +42,11 @@ pub fn handler(
     let l_zero = pm_math::suggest_l_zero_for_budget(budget_usdc, duration_secs)?;
     let l_zero_bits = l_zero.to_bits() as u128;
 
-    // Estimated daily LVR = budget / (2 * duration_days)
-    let duration_days = duration_secs as f64 / 86400.0;
-    let daily_lvr = if duration_days > 0.0 {
-        (budget_usdc as f64 / (2.0 * duration_days)) as u64
-    } else {
-        0
-    };
+    // Estimated daily LVR = budget * 86400 / (2 * duration_secs)
+    let daily_lvr = (budget_usdc as u128)
+        .checked_mul(86400)
+        .and_then(|n| n.checked_div(2 * duration_secs as u128))
+        .unwrap_or(0) as u64;
 
     // Warnings
     let warning_high_sigma = sigma_bps > 20000; // > 200% annualized

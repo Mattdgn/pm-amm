@@ -3,16 +3,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
-import { Program } from "@coral-xyz/anchor";
+import { Program } from "@anchor-lang/core";
 import idl from "@/lib/pm_amm_idl.json";
 import { PROGRAM_ID } from "@/lib/constants";
+import { i80f48ToNumber } from "@/lib/pm-math";
 
 const LP_SEED = Buffer.from("lp");
-
-function i80f48ToNumber(raw: any): number {
-  const bn = typeof raw === "bigint" ? raw : BigInt(raw.toString());
-  return Number(bn) / 2 ** 48;
-}
 
 export interface LpPositionData {
   shares: number;

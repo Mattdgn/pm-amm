@@ -18,6 +18,7 @@ pub struct ResolveMarket<'info> {
     pub market: Box<Account<'info, Market>>,
 }
 
+/// Set the winning side after market expiration (authority only).
 pub fn handler(ctx: Context<ResolveMarket>, winning_side: Side) -> Result<()> {
     let clock = Clock::get()?;
     let now = clock.unix_timestamp;

@@ -11,7 +11,7 @@ import { useSwapQuote, type SwapMode } from "@/hooks/use-swap-quote";
 import { formatUsdc } from "@/lib/pm-math";
 import type { MarketData } from "@/hooks/use-markets";
 import type { UserTokens } from "@/hooks/use-user-tokens";
-import { PublicKey, ComputeBudgetProgram } from "@solana/web3.js";
+import { PublicKey, ComputeBudgetProgram, type TransactionInstruction } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
   getAssociatedTokenAddress,
@@ -20,6 +20,7 @@ import {
   getAccount,
 } from "@solana/spl-token";
 import { USDC_MINT, solscanTxUrl } from "@/lib/constants";
+import { deriveYesMint, deriveNoMint, deriveVault } from "@/lib/pda";
 import { toast } from "sonner";
 
 const SLIPPAGE_BPS = 100;
@@ -57,19 +58,16 @@ export function TradePanel({
     setLoading(true);
     try {
       const marketPda = new PublicKey(market.publicKey);
-      const yesMintPda = PublicKey.findProgramAddressSync(
-        [Buffer.from("yes_mint"), marketPda.toBuffer()], program.programId)[0];
-      const noMintPda = PublicKey.findProgramAddressSync(
-        [Buffer.from("no_mint"), marketPda.toBuffer()], program.programId)[0];
-      const vaultPda = PublicKey.findProgramAddressSync(
-        [Buffer.from("vault"), marketPda.toBuffer()], program.programId)[0];
+      const yesMintPda = deriveYesMint(marketPda);
+      const noMintPda = deriveNoMint(marketPda);
+      const vaultPda = deriveVault(marketPda);
       const userUsdc = await getAssociatedTokenAddress(USDC_MINT, publicKey);
       const userYes = await getAssociatedTokenAddress(yesMintPda, publicKey);
       const userNo = await getAssociatedTokenAddress(noMintPda, publicKey);
 
       // Build ATA creation instructions (if needed) to bundle atomically
       const conn = program.provider.connection;
-      const preIxs: any[] = [ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })];
+      const preIxs: TransactionInstruction[] = [ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })];
       const atasCreated: { ata: PublicKey; mint: PublicKey }[] = [];
       for (const [ata, mint] of [
         [userYes, yesMintPda], [userNo, noMintPda], [userUsdc, USDC_MINT],
@@ -84,49 +82,47 @@ export function TradePanel({
         ? (side === "yes" ? { usdcToYes: {} } : { usdcToNo: {} })
         : (side === "yes" ? { yesToUsdc: {} } : { noToUsdc: {} });
 
-      const BN = (await import("@coral-xyz/anchor")).BN;
+      const BN = (await import("@anchor-lang/core")).BN;
       const lamports = Math.floor(amountNum * 1e6);
 
       // Close ATAs that remain empty after swap (cleanup wallet, recover rent)
       // Buy YES → NO ATA empty; Buy NO → YES ATA empty
       // Sell YES → YES ATA may be empty (if sold all); NO ATA empty if just created
-      const postIxs: any[] = [];
+      const postIxs: TransactionInstruction[] = [];
       const emptyAta = side === "yes" ? userNo : userYes;
       const wasCreated = atasCreated.some((a) => a.ata.equals(emptyAta));
       if (wasCreated) {
         postIxs.push(createCloseAccountInstruction(emptyAta, publicKey, publicKey));
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Anchor IDL types require cast
       const tx = await (program.methods as any)
         .swap(direction, new BN(lamports), new BN(minOutput))
         .accounts({
           signer: publicKey, market: marketPda, collateralMint: USDC_MINT,
           yesMint: yesMintPda, noMint: noMintPda, vault: vaultPda,
-          userCollateral: userUsdc, userYes, userNo,
+          userCollateral: userUsdc, userYes: userYes, userNo: userNo,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .preInstructions(preIxs)
         .postInstructions(postIxs)
         .rpc();
 
-      // Refetch markets to get real post-trade price, then snap it
-      queryClient.invalidateQueries({ queryKey: ["markets"] });
-      setTimeout(async () => {
-        const data = await queryClient.fetchQuery({ queryKey: ["markets"] });
-        const updated = (data as any[])?.find((m: any) => m.publicKey === market.publicKey);
-        if (updated?.price) {
-          fetch("/api/price-snap", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              marketId: market.publicKey,
-              price: updated.price,
-              timestamp: Math.floor(Date.now() / 1000),
-              force: true,
-            }),
-          }).catch(() => {});
-        }
-      }, 2000);
+      // Refetch markets to get post-trade price, then snap it
+      const data = await queryClient.fetchQuery({ queryKey: ["markets"], staleTime: 0 });
+      const updated = (data as MarketData[])?.find((m) => m.publicKey === market.publicKey);
+      if (updated?.price) {
+        fetch("/api/price-snap", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            marketId: market.publicKey,
+            price: updated.price,
+            timestamp: Math.floor(Date.now() / 1000),
+            force: true,
+          }),
+        }).catch(console.error);
+      }
 
       const desc = mode === "buy"
         ? `${formatUsdc(quote.output)} ${side.toUpperCase()} for ${amountNum.toFixed(2)} USDC`
@@ -136,11 +132,13 @@ export function TradePanel({
         action: { label: "Solscan ↗", onClick: () => window.open(solscanTxUrl(tx), "_blank") },
       });
       setAmount("");
-    } catch (err: any) {
-      if (err.message?.includes("Slippage")) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("WalletSign") || msg.includes("User rejected")) { toast.info("Transaction cancelled"); setLoading(false); return; }
+      if (msg.includes("Slippage")) {
         toast.error("Slippage exceeded", { description: "Price moved. Try again." });
       } else {
-        toast.error("Transaction failed", { description: err.message?.slice(0, 120) });
+        toast.error("Transaction failed", { description: msg.slice(0, 120) });
       }
     } finally {
       setLoading(false);
@@ -224,9 +222,11 @@ export function TradePanel({
             <p className="text-no text-[11px] font-mono">
               {quote.error.includes("ProgramFailedToComplete")
                 ? "Exceeds on-chain compute limit — reduce amount"
-                : quote.error.includes("Custom")
-                  ? "Insufficient balance"
-                  : quote.error}
+                : quote.error.includes("AccountNotInitialized")
+                  ? "Token account missing — first buy will create it"
+                  : quote.error.includes("InsufficientFunds") || quote.error.includes("0x1")
+                    ? "Insufficient balance"
+                    : quote.error}
             </p>
           ) : quote?.output ? (
             <>

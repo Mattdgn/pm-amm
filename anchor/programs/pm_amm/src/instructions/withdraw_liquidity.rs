@@ -21,13 +21,13 @@ pub struct WithdrawLiquidity<'info> {
     )]
     pub market: Box<Account<'info, Market>>,
 
-    pub collateral_mint: Account<'info, Mint>,
+    pub collateral_mint: Box<Account<'info, Mint>>,
 
     #[account(mut)]
-    pub yes_mint: Account<'info, Mint>,
+    pub yes_mint: Box<Account<'info, Mint>>,
 
     #[account(mut)]
-    pub no_mint: Account<'info, Mint>,
+    pub no_mint: Box<Account<'info, Mint>>,
 
     #[account(
         mut,
@@ -36,25 +36,26 @@ pub struct WithdrawLiquidity<'info> {
         constraint = lp_position.owner == signer.key() @ PmAmmError::Unauthorized,
         constraint = lp_position.market == market.key() @ PmAmmError::Unauthorized,
     )]
-    pub lp_position: Account<'info, LpPosition>,
+    pub lp_position: Box<Account<'info, LpPosition>>,
 
     #[account(
         mut,
         constraint = user_yes.mint == market.yes_mint,
         constraint = user_yes.owner == signer.key(),
     )]
-    pub user_yes: Account<'info, TokenAccount>,
+    pub user_yes: Box<Account<'info, TokenAccount>>,
 
     #[account(
         mut,
         constraint = user_no.mint == market.no_mint,
         constraint = user_no.owner == signer.key(),
     )]
-    pub user_no: Account<'info, TokenAccount>,
+    pub user_no: Box<Account<'info, TokenAccount>>,
 
     pub token_program: Program<'info, Token>,
 }
 
+/// Burn LP shares, receive proportional YES+NO tokens.
 pub fn handler(ctx: Context<WithdrawLiquidity>, shares_to_burn: u128) -> Result<()> {
     let clock = Clock::get()?;
     let now = clock.unix_timestamp;
@@ -121,10 +122,12 @@ pub fn handler(ctx: Context<WithdrawLiquidity>, shares_to_burn: u128) -> Result<
     // --- Phase 2: CPI mints ---
     let signer_seeds: &[&[&[u8]]] = &[&[Market::SEED, market_id_bytes.as_ref(), &[bump]]];
 
+    let tp = ctx.accounts.token_program.key();
+
     if yes_u64 > 0 {
         token::mint_to(
             CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
+                tp,
                 MintTo {
                     mint: ctx.accounts.yes_mint.to_account_info(),
                     to: ctx.accounts.user_yes.to_account_info(),
@@ -139,7 +142,7 @@ pub fn handler(ctx: Context<WithdrawLiquidity>, shares_to_burn: u128) -> Result<
     if no_u64 > 0 {
         token::mint_to(
             CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
+                tp,
                 MintTo {
                     mint: ctx.accounts.no_mint.to_account_info(),
                     to: ctx.accounts.user_no.to_account_info(),
@@ -149,6 +152,20 @@ pub fn handler(ctx: Context<WithdrawLiquidity>, shares_to_burn: u128) -> Result<
             ),
             no_u64,
         )?;
+    }
+
+    // Close LP position if fully withdrawn — reclaim rent to signer
+    if ctx.accounts.lp_position.shares == 0 {
+        let lp_info = ctx.accounts.lp_position.to_account_info();
+        let dest_info = ctx.accounts.signer.to_account_info();
+        let rent_lamports = lp_info.lamports();
+        **lp_info.try_borrow_mut_lamports()? = 0;
+        **dest_info.try_borrow_mut_lamports()? = dest_info
+            .lamports()
+            .checked_add(rent_lamports)
+            .ok_or(error!(PmAmmError::MathOverflow))?;
+        lp_info.assign(&System::id());
+        lp_info.resize(0)?;
     }
 
     Ok(())

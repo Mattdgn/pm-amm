@@ -21,40 +21,41 @@ pub struct RedeemPair<'info> {
     )]
     pub market: Box<Account<'info, Market>>,
 
-    pub collateral_mint: Account<'info, Mint>,
+    pub collateral_mint: Box<Account<'info, Mint>>,
 
     #[account(mut)]
-    pub yes_mint: Account<'info, Mint>,
+    pub yes_mint: Box<Account<'info, Mint>>,
 
     #[account(mut)]
-    pub no_mint: Account<'info, Mint>,
+    pub no_mint: Box<Account<'info, Mint>>,
 
     #[account(mut)]
-    pub vault: Account<'info, TokenAccount>,
+    pub vault: Box<Account<'info, TokenAccount>>,
 
     #[account(mut, constraint = user_yes.mint == market.yes_mint, constraint = user_yes.owner == signer.key())]
-    pub user_yes: Account<'info, TokenAccount>,
+    pub user_yes: Box<Account<'info, TokenAccount>>,
 
     #[account(mut, constraint = user_no.mint == market.no_mint, constraint = user_no.owner == signer.key())]
-    pub user_no: Account<'info, TokenAccount>,
+    pub user_no: Box<Account<'info, TokenAccount>>,
 
     #[account(mut, constraint = user_collateral.mint == market.collateral_mint, constraint = user_collateral.owner == signer.key())]
-    pub user_collateral: Account<'info, TokenAccount>,
+    pub user_collateral: Box<Account<'info, TokenAccount>>,
 
     pub token_program: Program<'info, Token>,
 }
 
+/// Burn 1 YES + 1 NO to receive 1 USDC.
 pub fn handler(ctx: Context<RedeemPair>, amount: u64) -> Result<()> {
     require!(amount > 0, PmAmmError::InvalidBudget);
 
     // Check user has enough YES and NO
     require!(
         ctx.accounts.user_yes.amount >= amount,
-        PmAmmError::InsufficientLiquidity
+        PmAmmError::InsufficientBalance
     );
     require!(
         ctx.accounts.user_no.amount >= amount,
-        PmAmmError::InsufficientLiquidity
+        PmAmmError::InsufficientBalance
     );
     // Check vault has enough USDC to pay out
     require!(
@@ -65,12 +66,12 @@ pub fn handler(ctx: Context<RedeemPair>, amount: u64) -> Result<()> {
     let market_id_bytes = ctx.accounts.market.market_id.to_le_bytes();
     let bump = ctx.accounts.market.bump;
     let seeds: &[&[&[u8]]] = &[&[Market::SEED, market_id_bytes.as_ref(), &[bump]]];
-    let tp = ctx.accounts.token_program.to_account_info();
+    let tp = ctx.accounts.token_program.key();
 
     // Burn YES
     token::burn(
         CpiContext::new(
-            tp.clone(),
+            tp,
             Burn {
                 mint: ctx.accounts.yes_mint.to_account_info(),
                 from: ctx.accounts.user_yes.to_account_info(),
@@ -83,7 +84,7 @@ pub fn handler(ctx: Context<RedeemPair>, amount: u64) -> Result<()> {
     // Burn NO
     token::burn(
         CpiContext::new(
-            tp.clone(),
+            tp,
             Burn {
                 mint: ctx.accounts.no_mint.to_account_info(),
                 from: ctx.accounts.user_no.to_account_info(),

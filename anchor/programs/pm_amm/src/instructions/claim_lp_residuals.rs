@@ -22,10 +22,10 @@ pub struct ClaimLpResiduals<'info> {
     pub market: Box<Account<'info, Market>>,
 
     #[account(mut)]
-    pub yes_mint: Account<'info, Mint>,
+    pub yes_mint: Box<Account<'info, Mint>>,
 
     #[account(mut)]
-    pub no_mint: Account<'info, Mint>,
+    pub no_mint: Box<Account<'info, Mint>>,
 
     #[account(
         mut,
@@ -34,17 +34,18 @@ pub struct ClaimLpResiduals<'info> {
         constraint = lp_position.owner == signer.key() @ PmAmmError::Unauthorized,
         constraint = lp_position.market == market.key() @ PmAmmError::Unauthorized,
     )]
-    pub lp_position: Account<'info, LpPosition>,
+    pub lp_position: Box<Account<'info, LpPosition>>,
 
     #[account(mut, constraint = user_yes.mint == market.yes_mint, constraint = user_yes.owner == signer.key())]
-    pub user_yes: Account<'info, TokenAccount>,
+    pub user_yes: Box<Account<'info, TokenAccount>>,
 
     #[account(mut, constraint = user_no.mint == market.no_mint, constraint = user_no.owner == signer.key())]
-    pub user_no: Account<'info, TokenAccount>,
+    pub user_no: Box<Account<'info, TokenAccount>>,
 
     pub token_program: Program<'info, Token>,
 }
 
+/// Claim accrued YES+NO tokens for an LP position.
 pub fn handler(ctx: Context<ClaimLpResiduals>) -> Result<()> {
     let clock = Clock::get()?;
 
@@ -90,17 +91,16 @@ pub fn handler(ctx: Context<ClaimLpResiduals>) -> Result<()> {
 
     // Mint YES+NO to user
     let seeds: &[&[&[u8]]] = &[&[Market::SEED, market_id_bytes.as_ref(), &[bump]]];
-    let tp = ctx.accounts.token_program.to_account_info();
-    let market_info = ctx.accounts.market.to_account_info();
+    let tp = ctx.accounts.token_program.key();
 
     if yes_u64 > 0 {
         token::mint_to(
             CpiContext::new_with_signer(
-                tp.clone(),
+                tp,
                 MintTo {
                     mint: ctx.accounts.yes_mint.to_account_info(),
                     to: ctx.accounts.user_yes.to_account_info(),
-                    authority: market_info.clone(),
+                    authority: ctx.accounts.market.to_account_info(),
                 },
                 seeds,
             ),
@@ -115,7 +115,7 @@ pub fn handler(ctx: Context<ClaimLpResiduals>) -> Result<()> {
                 MintTo {
                     mint: ctx.accounts.no_mint.to_account_info(),
                     to: ctx.accounts.user_no.to_account_info(),
-                    authority: market_info,
+                    authority: ctx.accounts.market.to_account_info(),
                 },
                 seeds,
             ),

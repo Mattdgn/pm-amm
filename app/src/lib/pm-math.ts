@@ -3,6 +3,12 @@
  * Port of oracle/pm_amm_math.py — NOT for on-chain use.
  */
 
+/** Convert an Anchor-deserialized Q64.64 value (BN or bigint) to a JS number. */
+export function i80f48ToNumber(raw: { toString(): string } | bigint): number {
+  const bn = typeof raw === "bigint" ? raw : BigInt(raw.toString());
+  return Number(bn) / 2 ** 48;
+}
+
 /** Standard normal PDF */
 export function phi(z: number): number {
   return Math.exp(-z * z / 2) / Math.sqrt(2 * Math.PI);

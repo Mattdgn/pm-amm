@@ -1,11 +1,15 @@
 import { PublicKey } from "@solana/web3.js";
 
 export const PROGRAM_ID = new PublicKey(
-  "GQGSTV9dig5fEwcfMpgqHjo9jAhxtnusMEbx8SrBBYnQ"
+  "8V872cTKfH1gC5zBvQhrQN2DXSmRNokPPjPsBE46MZNj"
 );
 
 export const USDC_MINT = new PublicKey(
   "8m8VRDdvuxE4MQZBX8RqKMpuwqBYTQiME7n85Mw73j6A"
+);
+
+export const METAPLEX_PROGRAM_ID = new PublicKey(
+  "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s",
 );
 
 export const CLUSTER =

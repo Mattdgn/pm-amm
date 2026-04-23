@@ -2,11 +2,12 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey, ComputeBudgetProgram, Transaction } from "@solana/web3.js";
+import { PublicKey, ComputeBudgetProgram, Transaction, type TransactionInstruction } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from "@solana/spl-token";
-import { Program, BN } from "@coral-xyz/anchor";
+import { Program, BN } from "@anchor-lang/core";
 import idl from "@/lib/pm_amm_idl.json";
-import { USDC_MINT, PROGRAM_ID } from "@/lib/constants";
+import { USDC_MINT } from "@/lib/constants";
+import { deriveYesMint, deriveNoMint, deriveVault } from "@/lib/pda";
 
 export type SwapMode = "buy" | "sell";
 
@@ -36,15 +37,11 @@ export function useSwapQuote(
 
       try {
         const market = new PublicKey(marketPda);
-        const programId = new PublicKey(idl.address);
         const program = new Program(idl as any, { connection } as any);
 
-        const yesMint = PublicKey.findProgramAddressSync(
-          [Buffer.from("yes_mint"), market.toBuffer()], programId)[0];
-        const noMint = PublicKey.findProgramAddressSync(
-          [Buffer.from("no_mint"), market.toBuffer()], programId)[0];
-        const vault = PublicKey.findProgramAddressSync(
-          [Buffer.from("vault"), market.toBuffer()], programId)[0];
+        const yesMint = deriveYesMint(market);
+        const noMint = deriveNoMint(market);
+        const vault = deriveVault(market);
 
         const userUsdc = await getAssociatedTokenAddress(USDC_MINT, publicKey);
         const userYes = await getAssociatedTokenAddress(yesMint, publicKey);
@@ -57,7 +54,7 @@ export function useSwapQuote(
 
         // Ensure ATAs exist for simulation
         const { createAssociatedTokenAccountInstruction } = await import("@solana/spl-token");
-        const ataIxs: any[] = [];
+        const ataIxs: TransactionInstruction[] = [];
         for (const { ata, mint } of [
           { ata: userUsdc, mint: USDC_MINT },
           { ata: userYes, mint: yesMint },
@@ -80,7 +77,7 @@ export function useSwapQuote(
         } catch { /* ATA doesn't exist */ }
 
         // Direction
-        let direction: any;
+        let direction: Record<string, Record<string, never>>;
         if (mode === "buy") {
           direction = side === "yes" ? { usdcToYes: {} } : { usdcToNo: {} };
         } else {
@@ -96,8 +93,8 @@ export function useSwapQuote(
           .swap(direction, new BN(lamports), new BN(0))
           .accounts({
             signer: publicKey, market, collateralMint: USDC_MINT,
-            yesMint, noMint, vault,
-            userCollateral: userUsdc, userYes, userNo,
+            yesMint: yesMint, noMint: noMint, vault,
+            userCollateral: userUsdc, userYes: userYes, userNo: userNo,
             tokenProgram: TOKEN_PROGRAM_ID,
           })
           .instruction();
@@ -113,7 +110,10 @@ export function useSwapQuote(
         const sim = await connection.simulateTransaction(tx, undefined, [outputAta]);
 
         if (sim.value.err) {
-          return { output: 0, error: `Sim error: ${JSON.stringify(sim.value.err)}` };
+          const logs = sim.value.logs?.filter((l: string) => l.includes("Error") || l.includes("failed")) ?? [];
+          const detail = logs.length > 0 ? logs[logs.length - 1] : JSON.stringify(sim.value.err);
+          console.warn("[swap-quote] sim failed:", JSON.stringify(sim.value.err), logs);
+          return { output: 0, error: detail };
         }
 
         const postAccounts = (sim.value as any).accounts;
@@ -125,8 +125,9 @@ export function useSwapQuote(
         }
 
         return { output: 0, error: "Could not read simulation result" };
-      } catch (e: any) {
-        return { output: 0, error: e.message?.slice(0, 80) || "Unknown error" };
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return { output: 0, error: msg.slice(0, 80) || "Unknown error" };
       }
     },
     enabled: !!publicKey && !!marketPda && amount > 0,

@@ -2,11 +2,12 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey, ComputeBudgetProgram, Transaction } from "@solana/web3.js";
+import { PublicKey, ComputeBudgetProgram, Transaction, type TransactionInstruction, type Connection } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from "@solana/spl-token";
-import { Program, BN } from "@coral-xyz/anchor";
+import { Program, BN } from "@anchor-lang/core";
 import idl from "@/lib/pm_amm_idl.json";
-import { USDC_MINT, PROGRAM_ID } from "@/lib/constants";
+import { USDC_MINT } from "@/lib/constants";
+import { deriveYesMint, deriveNoMint, deriveVault } from "@/lib/pda";
 import type { UserTokens } from "@/hooks/use-user-tokens";
 
 export interface PositionValue {
@@ -35,15 +36,11 @@ export function usePositionValue(
 
       try {
         const market = new PublicKey(marketPda);
-        const programId = new PublicKey(idl.address);
         const program = new Program(idl as any, { connection } as any);
 
-        const yesMint = PublicKey.findProgramAddressSync(
-          [Buffer.from("yes_mint"), market.toBuffer()], programId)[0];
-        const noMint = PublicKey.findProgramAddressSync(
-          [Buffer.from("no_mint"), market.toBuffer()], programId)[0];
-        const vault = PublicKey.findProgramAddressSync(
-          [Buffer.from("vault"), market.toBuffer()], programId)[0];
+        const yesMint = deriveYesMint(market);
+        const noMint = deriveNoMint(market);
+        const vault = deriveVault(market);
 
         const userUsdc = await getAssociatedTokenAddress(USDC_MINT, publicKey);
         const userYes = await getAssociatedTokenAddress(yesMint, publicKey);
@@ -51,7 +48,7 @@ export function usePositionValue(
 
         // Ensure ATAs exist for simulation
         const { createAssociatedTokenAccountInstruction } = await import("@solana/spl-token");
-        const ataIxs: any[] = [];
+        const ataIxs: TransactionInstruction[] = [];
         const atas = [
           { ata: userUsdc, mint: USDC_MINT },
           { ata: userYes, mint: yesMint },
@@ -95,10 +92,11 @@ export function usePositionValue(
           totalUsdc: yesValueUsdc + noValueUsdc,
           error: null,
         };
-      } catch (e: any) {
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
         return {
           yesValueUsdc: 0, noValueUsdc: 0, totalUsdc: 0,
-          error: e.message?.slice(0, 80) || "Unknown error",
+          error: msg.slice(0, 80) || "Unknown error",
         };
       }
     },
@@ -108,11 +106,12 @@ export function usePositionValue(
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Anchor Program type requires IDL generics
 async function simulateSell(
   program: any,
-  connection: any,
+  connection: Connection,
   publicKey: PublicKey,
-  direction: any,
+  direction: Record<string, Record<string, never>>,
   amount: number,
   market: PublicKey,
   yesMint: PublicKey,
@@ -121,7 +120,7 @@ async function simulateSell(
   userUsdc: PublicKey,
   userYes: PublicKey,
   userNo: PublicKey,
-  ataIxs: any[],
+  ataIxs: TransactionInstruction[],
   outputAta: PublicKey
 ): Promise<number> {
   // Get pre-balance of USDC ATA
@@ -138,8 +137,8 @@ async function simulateSell(
     .swap(direction, new BN(amount), new BN(0))
     .accounts({
       signer: publicKey, market, collateralMint: USDC_MINT,
-      yesMint, noMint, vault,
-      userCollateral: userUsdc, userYes, userNo,
+      yesMint: yesMint, noMint: noMint, vault,
+      userCollateral: userUsdc, userYes: userYes, userNo: userNo,
       tokenProgram: TOKEN_PROGRAM_ID,
     })
     .instruction();

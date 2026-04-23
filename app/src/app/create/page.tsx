@@ -9,8 +9,8 @@ import { AmountInput } from "@/components/ui/amount-input";
 import { useProgram } from "@/hooks/use-program";
 import { PublicKey, ComputeBudgetProgram, SystemProgram } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from "@solana/spl-token";
-import { USDC_MINT, solscanTxUrl } from "@/lib/constants";
-import { BN } from "@coral-xyz/anchor";
+import { USDC_MINT, METAPLEX_PROGRAM_ID, solscanTxUrl } from "@/lib/constants";
+import { BN } from "@anchor-lang/core";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -50,8 +50,7 @@ export default function CreateMarketPage() {
       const [vault] = PublicKey.findProgramAddressSync(
         [Buffer.from("vault"), marketPda.toBuffer()], program.programId);
 
-      // Metaplex Token Metadata program
-      const TOKEN_METADATA_PROGRAM = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
+      const TOKEN_METADATA_PROGRAM = METAPLEX_PROGRAM_ID;
       const [yesMetadata] = PublicKey.findProgramAddressSync(
         [Buffer.from("metadata"), TOKEN_METADATA_PROGRAM.toBuffer(), yesMint.toBuffer()],
         TOKEN_METADATA_PROGRAM
@@ -61,12 +60,13 @@ export default function CreateMarketPage() {
         TOKEN_METADATA_PROGRAM
       );
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Anchor IDL types require cast
       const tx1 = await (program.methods as any)
         .initializeMarket(new BN(marketId), new BN(endTs), name)
         .accounts({
           authority: publicKey, market: marketPda, collateralMint: USDC_MINT,
-          yesMint, noMint, vault,
-          yesMetadata, noMetadata,
+          yesMint: yesMint, noMint: noMint, vault,
+          yesMetadata: yesMetadata, noMetadata: noMetadata,
           tokenMetadataProgram: TOKEN_METADATA_PROGRAM,
           systemProgram: SystemProgram.programId, tokenProgram: TOKEN_PROGRAM_ID,
           rent: new PublicKey("SysvarRent111111111111111111111111111111111"),
@@ -86,6 +86,7 @@ export default function CreateMarketPage() {
           [Buffer.from("lp"), marketPda.toBuffer(), publicKey.toBuffer()],
           program.programId
         );
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Anchor IDL types require cast
         const tx2 = await (program.methods as any)
           .depositLiquidity(new BN(lamports))
           .accounts({
@@ -101,8 +102,10 @@ export default function CreateMarketPage() {
       }
 
       router.push(`/market/${marketId}`);
-    } catch (err: any) {
-      toast.error("Creation failed", { description: err.message?.slice(0, 150) });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("WalletSign") || msg.includes("User rejected")) { toast.info("Transaction cancelled"); setLoading(false); return; }
+      toast.error("Creation failed", { description: msg.slice(0, 150) });
     } finally {
       setLoading(false);
     }

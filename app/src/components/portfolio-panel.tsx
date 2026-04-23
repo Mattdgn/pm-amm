@@ -9,7 +9,8 @@ import { Figure } from "@/components/ui/figure";
 import { useMarkets } from "@/hooks/use-markets";
 import { useUserTokens } from "@/hooks/use-user-tokens";
 import { formatUsdc } from "@/lib/pm-math";
-import { USDC_MINT, PROGRAM_ID } from "@/lib/constants";
+import { USDC_MINT } from "@/lib/constants";
+import { deriveYesMint, deriveNoMint } from "@/lib/pda";
 
 /** Fetch just the USDC balance — no YES/NO mints needed. */
 function useUsdcBalance() {
@@ -35,12 +36,8 @@ function useUsdcBalance() {
 
 function MarketPosition({ market }: { market: { publicKey: string; marketId: number; name: string; price: number; resolved: boolean; winningSide: number } }) {
   const marketPda = new PublicKey(market.publicKey);
-  const yesMint = PublicKey.findProgramAddressSync(
-    [Buffer.from("yes_mint"), marketPda.toBuffer()], PROGRAM_ID
-  )[0].toBase58();
-  const noMint = PublicKey.findProgramAddressSync(
-    [Buffer.from("no_mint"), marketPda.toBuffer()], PROGRAM_ID
-  )[0].toBase58();
+  const yesMint = deriveYesMint(marketPda).toBase58();
+  const noMint = deriveNoMint(marketPda).toBase58();
 
   const { data: tokens } = useUserTokens(yesMint, noMint, USDC_MINT.toBase58());
 

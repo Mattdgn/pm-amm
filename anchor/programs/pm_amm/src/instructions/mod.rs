@@ -11,6 +11,7 @@ pub mod suggest_l_zero;
 pub mod swap;
 pub mod withdraw_liquidity;
 
+#[allow(ambiguous_glob_reexports)]
 pub use accrue::*;
 pub use claim_lp_residuals::*;
 pub use claim_winnings::*;

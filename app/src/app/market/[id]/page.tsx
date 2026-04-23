@@ -17,6 +17,7 @@ import { useUserTokens } from "@/hooks/use-user-tokens";
 import { formatUsdc, poolValue } from "@/lib/pm-math";
 import { Countdown } from "@/components/ui/countdown";
 import { USDC_MINT, solscanAccountUrl } from "@/lib/constants";
+import { deriveYesMint, deriveNoMint } from "@/lib/pda";
 import { PublicKey } from "@solana/web3.js";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -30,20 +31,9 @@ export default function MarketPage({
   const { data: markets, isLoading } = useMarkets();
   const market = markets?.find((m) => m.marketId === Number(id));
 
-  const programId = "GQGSTV9dig5fEwcfMpgqHjo9jAhxtnusMEbx8SrBBYnQ";
   const marketPda = market ? new PublicKey(market.publicKey) : undefined;
-  const yesMint = marketPda
-    ? PublicKey.findProgramAddressSync(
-        [Buffer.from("yes_mint"), marketPda.toBuffer()],
-        new PublicKey(programId)
-      )[0].toBase58()
-    : undefined;
-  const noMint = marketPda
-    ? PublicKey.findProgramAddressSync(
-        [Buffer.from("no_mint"), marketPda.toBuffer()],
-        new PublicKey(programId)
-      )[0].toBase58()
-    : undefined;
+  const yesMint = marketPda ? deriveYesMint(marketPda).toBase58() : undefined;
+  const noMint = marketPda ? deriveNoMint(marketPda).toBase58() : undefined;
 
   const { data: tokens } = useUserTokens(yesMint, noMint, USDC_MINT.toBase58());
   const name = market?.name ?? `Market #${id}`;
@@ -93,43 +83,75 @@ export default function MarketPage({
               </a>
             </div>
 
-            {/* Prices + prob bar */}
-            <div>
-              <div className="flex gap-[48px] mb-[12px]">
-                <Figure label="YES" value={market.price.toFixed(4)} size="price" color="yes" />
-                <Figure label="NO" value={(1 - market.price).toFixed(4)} size="price" color="no" />
-              </div>
-              <ProbabilityBar yesPercent={market.price * 100} />
-            </div>
+            {market.resolved ? (
+              /* ====== RESOLVED STATE ====== */
+              <div className="space-y-[24px]">
+                {/* Outcome banner */}
+                <div className={`border p-[24px] text-center space-y-[8px] ${
+                  market.winningSide === 1
+                    ? "border-yes/30 bg-yes/5"
+                    : "border-no/30 bg-no/5"
+                }`}>
+                  <p className="text-[11px] font-mono text-muted uppercase tracking-[0.08em]">Resolved</p>
+                  <p className={`text-[32px] font-mono font-bold tracking-tight ${
+                    market.winningSide === 1 ? "text-yes" : "text-no"
+                  }`}>
+                    {market.winningSide === 1 ? "YES" : "NO"}
+                  </p>
+                  <p className="text-[12px] text-muted font-mono">
+                    {new Date(market.endTs * 1000).toLocaleDateString("en-US", {
+                      month: "short", day: "numeric", year: "numeric",
+                    })}
+                  </p>
+                </div>
 
-            {/* Price chart */}
-            <PriceChart marketId={market.publicKey} currentPrice={market.price} />
+                {/* Price chart — historical context */}
+                <PriceChart marketId={market.publicKey} currentPrice={market.price} />
 
-            {/* Meta */}
-            <div className="max-w-md">
-              <MetaRow label="Pool Value" value={`$${formatUsdc(poolValue(market.price, market.lEff))}`} />
-              <MetaRow label="Expires" value={<Countdown endTs={market.endTs} />} last />
-            </div>
+                {/* Position + claim */}
+                <PositionCard market={market} tokens={tokens ?? null} />
 
-            {/* Projections */}
-            {!market.resolved && <MarketProjections market={market} />}
-
-            {/* Position */}
-            <PositionCard market={market} tokens={tokens ?? null} />
-
-            {/* Trade / LP */}
-            {!market.resolved ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-[16px]">
-                <TradePanel market={market} tokens={tokens ?? null} />
-                <div className="space-y-[16px]">
+                {/* LP withdraw + residuals (still useful post-resolution) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-[16px]">
                   <LpPanel market={market} />
                   <ResidualsWidget market={market} />
                 </div>
               </div>
             ) : (
-              <div className="space-y-[16px]">
-                <LpPanel market={market} />
-                <ResidualsWidget market={market} />
+              /* ====== ACTIVE STATE ====== */
+              <div className="space-y-[24px]">
+                {/* Prices + prob bar */}
+                <div>
+                  <div className="flex gap-[48px] mb-[12px]">
+                    <Figure label="YES" value={market.price.toFixed(4)} size="price" color="yes" />
+                    <Figure label="NO" value={(1 - market.price).toFixed(4)} size="price" color="no" />
+                  </div>
+                  <ProbabilityBar yesPercent={market.price * 100} />
+                </div>
+
+                {/* Price chart */}
+                <PriceChart marketId={market.publicKey} currentPrice={market.price} />
+
+                {/* Meta */}
+                <div className="max-w-md">
+                  <MetaRow label="Pool Value" value={`$${formatUsdc(poolValue(market.price, market.lEff))}`} />
+                  <MetaRow label="Expires" value={<Countdown endTs={market.endTs} />} last />
+                </div>
+
+                {/* Projections */}
+                <MarketProjections market={market} />
+
+                {/* Position */}
+                <PositionCard market={market} tokens={tokens ?? null} />
+
+                {/* Trade / LP */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-[16px]">
+                  <TradePanel market={market} tokens={tokens ?? null} />
+                  <div className="space-y-[16px]">
+                    <LpPanel market={market} />
+                    <ResidualsWidget market={market} />
+                  </div>
+                </div>
               </div>
             )}
           </div>

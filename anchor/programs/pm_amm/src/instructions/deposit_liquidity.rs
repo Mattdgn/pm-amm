@@ -21,17 +21,17 @@ pub struct DepositLiquidity<'info> {
     )]
     pub market: Box<Account<'info, Market>>,
 
-    pub collateral_mint: Account<'info, Mint>,
+    pub collateral_mint: Box<Account<'info, Mint>>,
 
     #[account(mut)]
-    pub vault: Account<'info, TokenAccount>,
+    pub vault: Box<Account<'info, TokenAccount>>,
 
     #[account(
         mut,
         constraint = user_collateral.mint == market.collateral_mint,
         constraint = user_collateral.owner == signer.key(),
     )]
-    pub user_collateral: Account<'info, TokenAccount>,
+    pub user_collateral: Box<Account<'info, TokenAccount>>,
 
     #[account(
         init_if_needed,
@@ -40,18 +40,21 @@ pub struct DepositLiquidity<'info> {
         seeds = [LpPosition::SEED, market.key().as_ref(), signer.key().as_ref()],
         bump,
     )]
-    pub lp_position: Account<'info, LpPosition>,
+    pub lp_position: Box<Account<'info, LpPosition>>,
 
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
 }
 
+/// Deposit USDC into the pool, receive LP shares.
 pub fn handler(ctx: Context<DepositLiquidity>, amount: u64) -> Result<()> {
     let clock = Clock::get()?;
     let now = clock.unix_timestamp;
 
-    // Minimum 1000 lamports (0.001 USDC) to avoid dust positions
-    require!(amount >= 1000, PmAmmError::InvalidBudget);
+    /// Minimum deposit in token base units (0.001 USDC = 1000 lamports at 6 decimals).
+    const MIN_DEPOSIT: u64 = 1_000;
+
+    require!(amount >= MIN_DEPOSIT, PmAmmError::InvalidBudget);
 
     // --- Phase 1: Mutations on market (scoped borrow) ---
     let new_shares: I80F48;
@@ -104,7 +107,7 @@ pub fn handler(ctx: Context<DepositLiquidity>, amount: u64) -> Result<()> {
     // --- Phase 2: CPI transfer ---
     token::transfer(
         CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             Transfer {
                 from: ctx.accounts.user_collateral.to_account_info(),
                 to: ctx.accounts.vault.to_account_info(),

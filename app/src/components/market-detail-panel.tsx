@@ -9,7 +9,8 @@ import { usePositionValue } from "@/hooks/use-position-value";
 import { formatUsdc, poolValue } from "@/lib/pm-math";
 import { Countdown } from "@/components/ui/countdown";
 import type { MarketData } from "@/hooks/use-markets";
-import { USDC_MINT, PROGRAM_ID, solscanAccountUrl } from "@/lib/constants";
+import { USDC_MINT, solscanAccountUrl } from "@/lib/constants";
+import { deriveYesMint, deriveNoMint } from "@/lib/pda";
 import { PublicKey } from "@solana/web3.js";
 import Link from "next/link";
 
@@ -27,12 +28,8 @@ export function MarketDetailPanel({ market }: MarketDetailPanelProps) {
 
   // Derive mints for token lookup
   const marketPda = new PublicKey(market.publicKey);
-  const yesMint = PublicKey.findProgramAddressSync(
-    [Buffer.from("yes_mint"), marketPda.toBuffer()], PROGRAM_ID
-  )[0].toBase58();
-  const noMint = PublicKey.findProgramAddressSync(
-    [Buffer.from("no_mint"), marketPda.toBuffer()], PROGRAM_ID
-  )[0].toBase58();
+  const yesMint = deriveYesMint(marketPda).toBase58();
+  const noMint = deriveNoMint(marketPda).toBase58();
 
   const { data: tokens } = useUserTokens(yesMint, noMint, USDC_MINT.toBase58());
   const { data: posValue } = usePositionValue(market.publicKey, tokens ?? null);

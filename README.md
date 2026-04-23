@@ -1,10 +1,15 @@
 # pm-AMM — Paradigm Dynamic AMM for Prediction Markets on Solana
 
+[![CI](https://github.com/mattdgn/pm-amm/actions/workflows/test.yml/badge.svg)](https://github.com/mattdgn/pm-amm/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Solana](https://img.shields.io/badge/Solana-Devnet-9945FF)](https://explorer.solana.com/address/8V872cTKfH1gC5zBvQhrQN2DXSmRNokPPjPsBE46MZNj?cluster=devnet)
+[![Anchor](https://img.shields.io/badge/Anchor-1.0-blueviolet)](https://www.anchor-lang.com/)
+
 **First production implementation of the Paradigm pm-AMM on Solana. 100% fidelity to the paper. Uniform LVR in price and time.**
 
 > Based on [*pm-AMM: A Prediction Market AMM*](https://www.paradigm.xyz/2024/11/pm-amm) by Ciamac Moallemi & Dan Robinson (Paradigm, Nov 2024).
 
-**Program ID**: `GQGSTV9dig5fEwcfMpgqHjo9jAhxtnusMEbx8SrBBYnQ` ([Devnet Explorer](https://explorer.solana.com/address/GQGSTV9dig5fEwcfMpgqHjo9jAhxtnusMEbx8SrBBYnQ?cluster=devnet))
+**Program ID**: `8V872cTKfH1gC5zBvQhrQN2DXSmRNokPPjPsBE46MZNj` ([Devnet Explorer](https://explorer.solana.com/address/8V872cTKfH1gC5zBvQhrQN2DXSmRNokPPjPsBE46MZNj?cluster=devnet))
 
 ---
 
@@ -158,28 +163,67 @@ await program.methods
 
 ---
 
+## Prerequisites
+
+- [Rust](https://rustup.rs/) (stable)
+- [Solana CLI](https://docs.solanalabs.com/cli/install) (v2+)
+- [Anchor CLI](https://www.anchor-lang.com/docs/installation) (v0.31+)
+- [Node.js](https://nodejs.org/) (v20+)
+- [pnpm](https://pnpm.io/) (v9+)
+- Python 3.10+ (for oracle tests only)
+
 ## Quick Start
 
 ```bash
-# Build
-cd anchor && anchor build --no-idl -- --tools-version v1.52
-anchor idl build -o target/idl/pm_amm.json
+# Install dependencies
+pnpm install
 
-# Test
-cargo test --package pm_amm        # 49 Rust tests
-anchor test --skip-lint             # 18 TS integration tests
-python3 oracle/test_oracle.py       # 112 oracle tests
-python3 oracle/test_properties.py   # 18 property tests
+# Build the program
+pnpm run build
 
-# Frontend
-cd app && pnpm dev
+# Run Rust unit tests (49 tests)
+cd anchor && cargo test --package pm_amm
+
+# Run integration tests (18 tests, requires local validator)
+pnpm run test
+
+# Run Python oracle tests (130 tests)
+cd oracle && python3 test_oracle.py && python3 test_properties.py
+
+# Start the frontend
+pnpm run dev
 
 # Deploy to devnet
-cd anchor && bash scripts/deploy-devnet.sh
+pnpm run deploy
 ```
+
+## Environment Variables
+
+Copy `.env.example` to `.env.local` in the `app/` directory:
+
+```bash
+NEXT_PUBLIC_RPC_URL=https://api.devnet.solana.com
+KV_REST_API_URL=            # Upstash Redis (optional, for price history)
+KV_REST_API_TOKEN=          # Upstash Redis (optional)
+MINT_AUTHORITY_KEY=         # Base64-encoded keypair for mock USDC faucet
+```
+
+## Contributing
+
+Contributions are welcome. Please open an issue first to discuss what you'd like to change.
+
+1. Fork the repo
+2. Create your feature branch (`git checkout -b feat/my-feature`)
+3. Ensure `cargo test` and `pnpm tsc --noEmit` pass
+4. Commit and push
+5. Open a Pull Request
+
+## License
+
+[MIT](LICENSE)
 
 ---
 
-Built for the [$PREDICT hackathon](https://justspark.fun/hackathons/$PREDICT) by [@mathys](https://x.com/mathyscgn).
+Built for the [$PREDICT hackathon](https://justspark.fun/hackathons/$PREDICT) by [@matt](https://x.com/mattdgn).
 
 Paper: [Paradigm pm-AMM](https://www.paradigm.xyz/2024/11/pm-amm) (Moallemi & Robinson, Nov 2024)
