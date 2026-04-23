@@ -2,10 +2,10 @@
 //! Non-mutative — emits an event with the suggestion and warnings.
 //! Composable: other programs can CPI this to calibrate auto-LP vaults.
 
-use anchor_lang::prelude::*;
 use crate::errors::PmAmmError;
 use crate::pm_math;
 use crate::state::Market;
+use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
 pub struct SuggestLZero<'info> {
@@ -15,19 +15,15 @@ pub struct SuggestLZero<'info> {
 #[event]
 pub struct LZeroSuggestion {
     pub market: Pubkey,
-    pub suggested_l_zero: u128, // Q64.64
-    pub estimated_pool_value: u64, // USDC (= budget by construction)
-    pub estimated_daily_lvr: u64, // budget / (2 * duration_days)
-    pub warning_high_sigma: bool, // sigma > 200% annualized (20000 bps)
+    pub suggested_l_zero: u128,       // Q64.64
+    pub estimated_pool_value: u64,    // USDC (= budget by construction)
+    pub estimated_daily_lvr: u64,     // budget / (2 * duration_days)
+    pub warning_high_sigma: bool,     // sigma > 200% annualized (20000 bps)
     pub warning_short_duration: bool, // duration < 1 day
 }
 
 /// View instruction: compute optimal L_0 for a given budget and sigma.
-pub fn handler(
-    ctx: Context<SuggestLZero>,
-    budget_usdc: u64,
-    sigma_bps: u64,
-) -> Result<()> {
+pub fn handler(ctx: Context<SuggestLZero>, budget_usdc: u64, sigma_bps: u64) -> Result<()> {
     let clock = Clock::get()?;
     let now = clock.unix_timestamp;
     let market = &ctx.accounts.market;

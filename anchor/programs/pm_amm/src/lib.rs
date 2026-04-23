@@ -1,7 +1,6 @@
 // Anchor's #[program] macro generates code that triggers these lints
 // Anchor 1.0 #[program] macro generates unexpected cfgs
 #![allow(unexpected_cfgs)]
-
 // Anchor's #[program] macro and generated LUT code trigger these clippy lints
 #![allow(
     clippy::diverging_sub_expression,
@@ -53,10 +52,7 @@ pub mod pm_amm {
 
     /// Deposit USDC as liquidity. First deposit bootstraps L_0 at 50/50 price.
     /// Subsequent deposits scale L_0 proportionally to preserve the current price.
-    pub fn deposit_liquidity(
-        ctx: Context<DepositLiquidity>,
-        amount: u64,
-    ) -> Result<()> {
+    pub fn deposit_liquidity(ctx: Context<DepositLiquidity>, amount: u64) -> Result<()> {
         instructions::deposit_liquidity::handler(ctx, amount)
     }
 
@@ -73,10 +69,7 @@ pub mod pm_amm {
 
     /// Withdraw LP shares: auto-claims pending residuals, then mints
     /// proportional YES+NO tokens from the pool reserves.
-    pub fn withdraw_liquidity(
-        ctx: Context<WithdrawLiquidity>,
-        shares_to_burn: u128,
-    ) -> Result<()> {
+    pub fn withdraw_liquidity(ctx: Context<WithdrawLiquidity>, shares_to_burn: u128) -> Result<()> {
         instructions::withdraw_liquidity::handler(ctx, shares_to_burn)
     }
 

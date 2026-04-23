@@ -90,9 +90,7 @@ pub fn exp_fixed(x: I80F48) -> Result<I80F48> {
         term = term * r / I80F48::from_num(n);
         sum = sum + term;
         // Early exit if term is negligible
-        if term > ZERO - NEWTON_EPSILON
-            && term < NEWTON_EPSILON
-        {
+        if term > ZERO - NEWTON_EPSILON && term < NEWTON_EPSILON {
             break;
         }
     }
@@ -132,7 +130,11 @@ pub fn sqrt_fixed(x: I80F48) -> Result<I80F48> {
     for _ in 0..20 {
         let next = (guess + x / guess) / TWO;
         // Early exit if converged
-        let diff = if next > guess { next - guess } else { guess - next };
+        let diff = if next > guess {
+            next - guess
+        } else {
+            guess - next
+        };
         if diff < NEWTON_EPSILON {
             return Ok(next);
         }
@@ -341,10 +343,7 @@ pub fn l_effective(l_zero: I80F48, time_remaining_secs: i64) -> Result<I80F48> {
 /// Reserves from price. Paper eq. (5) & (6).
 /// x*(P) = L_eff * { Phi_inv(P)*P + phi(Phi_inv(P)) - Phi_inv(P) }
 /// y*(P) = L_eff * { Phi_inv(P)*P + phi(Phi_inv(P)) }
-pub fn reserves_from_price(
-    price: I80F48,
-    l_eff: I80F48,
-) -> Result<(I80F48, I80F48)> {
+pub fn reserves_from_price(price: I80F48, l_eff: I80F48) -> Result<(I80F48, I80F48)> {
     let u = capital_phi_inv_fixed(price)?;
     let phi_u = phi_fixed(u)?;
 
@@ -355,22 +354,14 @@ pub fn reserves_from_price(
 }
 
 /// Price from reserves via key identity: P = Phi((y - x) / L_eff). Paper section 7.
-pub fn price_from_reserves(
-    x: I80F48,
-    y: I80F48,
-    l_eff: I80F48,
-) -> Result<I80F48> {
+pub fn price_from_reserves(x: I80F48, y: I80F48, l_eff: I80F48) -> Result<I80F48> {
     let z = (y - x) / l_eff;
     capital_phi_fixed(z)
 }
 
 /// Invariant value. Returns 0 for valid reserves.
 /// (y-x)*Phi((y-x)/L) + L*phi((y-x)/L) - y = 0. Paper section 7.
-pub fn invariant_value(
-    x: I80F48,
-    y: I80F48,
-    l_eff: I80F48,
-) -> Result<I80F48> {
+pub fn invariant_value(x: I80F48, y: I80F48, l_eff: I80F48) -> Result<I80F48> {
     let d = y - x;
     let z = d / l_eff;
     let phi_z = phi_fixed(z)?;
@@ -490,14 +481,18 @@ pub fn compute_swap_output(
             // Phi(z) → Phi_inv(Phi(z)) round-trip that blows CU budget.
             let z_clamp_lo = Z_CLAMP_LO;
             let z_clamp_hi = Z_CLAMP_HI;
-            let new_z = (((y - x) - delta_in) / l_eff).max(z_clamp_lo).min(z_clamp_hi);
+            let new_z = (((y - x) - delta_in) / l_eff)
+                .max(z_clamp_lo)
+                .min(z_clamp_hi);
             let (xn, yn) = xy_from_u_fast(new_z, l_eff);
             (y - yn, xn, yn)
         }
         (SwapSide::No, SwapSide::Usdc) => {
             let z_clamp_lo = Z_CLAMP_LO;
             let z_clamp_hi = Z_CLAMP_HI;
-            let new_z = (((y - x) + delta_in) / l_eff).max(z_clamp_lo).min(z_clamp_hi);
+            let new_z = (((y - x) + delta_in) / l_eff)
+                .max(z_clamp_lo)
+                .min(z_clamp_hi);
             let (xn, yn) = xy_from_u_fast(new_z, l_eff);
             (x - xn, xn, yn)
         }
@@ -532,10 +527,7 @@ pub fn compute_swap_output(
 
 /// Calibrate L_0 so that pool value at P=0.5 equals the budget.
 /// L_0 = budget / (phi(0) * sqrt(T)). Paper section 7.
-pub fn suggest_l_zero_for_budget(
-    budget_usdc: u64,
-    duration_secs: i64,
-) -> Result<I80F48> {
+pub fn suggest_l_zero_for_budget(budget_usdc: u64, duration_secs: i64) -> Result<I80F48> {
     if budget_usdc == 0 {
         return err!(PmAmmError::InvalidBudget);
     }
@@ -579,10 +571,30 @@ mod tests {
     fn test_exp() {
         assert_close("exp(0)", exp_fixed(ZERO).unwrap(), 1.0, 1e-10);
         assert_close("exp(1)", exp_fixed(ONE).unwrap(), std::f64::consts::E, 1e-8);
-        assert_close("exp(-1)", exp_fixed(f(-1.0)).unwrap(), (-1.0_f64).exp(), 1e-8);
-        assert_close("exp(2)", exp_fixed(f(2.0)).unwrap(), 7.389056098930650, 1e-5);
-        assert_close("exp(-2)", exp_fixed(f(-2.0)).unwrap(), 0.135335283236613, 1e-7);
-        assert_close("exp(-5)", exp_fixed(f(-5.0)).unwrap(), 0.006737946999085, 1e-6);
+        assert_close(
+            "exp(-1)",
+            exp_fixed(f(-1.0)).unwrap(),
+            (-1.0_f64).exp(),
+            1e-8,
+        );
+        assert_close(
+            "exp(2)",
+            exp_fixed(f(2.0)).unwrap(),
+            7.389056098930650,
+            1e-5,
+        );
+        assert_close(
+            "exp(-2)",
+            exp_fixed(f(-2.0)).unwrap(),
+            0.135335283236613,
+            1e-7,
+        );
+        assert_close(
+            "exp(-5)",
+            exp_fixed(f(-5.0)).unwrap(),
+            0.006737946999085,
+            1e-6,
+        );
         assert_close("exp(5)", exp_fixed(f(5.0)).unwrap(), 148.413159102577, 1e-2);
         assert_close("exp(-10)", exp_fixed(f(-10.0)).unwrap(), 0.0000453999, 1e-7);
         // exp(10) = 22026.47 — large value, relative tolerance
@@ -600,11 +612,26 @@ mod tests {
     fn test_sqrt() {
         assert_close("sqrt(1)", sqrt_fixed(ONE).unwrap(), 1.0, 1e-12);
         assert_close("sqrt(4)", sqrt_fixed(f(4.0)).unwrap(), 2.0, 1e-12);
-        assert_close("sqrt(2)", sqrt_fixed(f(2.0)).unwrap(), std::f64::consts::SQRT_2, 1e-12);
+        assert_close(
+            "sqrt(2)",
+            sqrt_fixed(f(2.0)).unwrap(),
+            std::f64::consts::SQRT_2,
+            1e-12,
+        );
         assert_close("sqrt(0.25)", sqrt_fixed(f(0.25)).unwrap(), 0.5, 1e-12);
         assert_close("sqrt(0.01)", sqrt_fixed(f(0.01)).unwrap(), 0.1, 1e-12);
-        assert_close("sqrt(86400)", sqrt_fixed(f(86400.0)).unwrap(), 293.93876913, 1e-6);
-        assert_close("sqrt(604800)", sqrt_fixed(f(604800.0)).unwrap(), 777.68888380890, 1e-4);
+        assert_close(
+            "sqrt(86400)",
+            sqrt_fixed(f(86400.0)).unwrap(),
+            293.93876913,
+            1e-6,
+        );
+        assert_close(
+            "sqrt(604800)",
+            sqrt_fixed(f(604800.0)).unwrap(),
+            777.68888380890,
+            1e-4,
+        );
         // Large numbers (previously failed with 12 iterations)
         assert_close("sqrt(1e6)", sqrt_fixed(f(1e6)).unwrap(), 1000.0, 1e-6);
         assert_close("sqrt(1e8)", sqrt_fixed(f(1e8)).unwrap(), 10000.0, 1e-4);
@@ -614,15 +641,45 @@ mod tests {
     #[test]
     fn test_ln() {
         assert_close("ln(1)", ln_fixed(ONE).unwrap(), 0.0, 1e-10);
-        assert_close("ln(e)", ln_fixed(f(std::f64::consts::E)).unwrap(), 1.0, 1e-8);
+        assert_close(
+            "ln(e)",
+            ln_fixed(f(std::f64::consts::E)).unwrap(),
+            1.0,
+            1e-8,
+        );
         assert_close("ln(2)", ln_fixed(f(2.0)).unwrap(), 0.693147180559945, 1e-10);
-        assert_close("ln(0.5)", ln_fixed(f(0.5)).unwrap(), -0.693147180559945, 1e-10);
-        assert_close("ln(10)", ln_fixed(f(10.0)).unwrap(), 2.302585092994046, 1e-8);
-        assert_close("ln(0.01)", ln_fixed(f(0.01)).unwrap(), -4.605170185988091, 1e-6);
-        assert_close("ln(100)", ln_fixed(f(100.0)).unwrap(), 4.605170185988091, 1e-6);
+        assert_close(
+            "ln(0.5)",
+            ln_fixed(f(0.5)).unwrap(),
+            -0.693147180559945,
+            1e-10,
+        );
+        assert_close(
+            "ln(10)",
+            ln_fixed(f(10.0)).unwrap(),
+            2.302585092994046,
+            1e-8,
+        );
+        assert_close(
+            "ln(0.01)",
+            ln_fixed(f(0.01)).unwrap(),
+            -4.605170185988091,
+            1e-6,
+        );
+        assert_close(
+            "ln(100)",
+            ln_fixed(f(100.0)).unwrap(),
+            4.605170185988091,
+            1e-6,
+        );
         // Larger values — tests bounded range reduction loops
         assert_close("ln(1e6)", ln_fixed(f(1e6)).unwrap(), 13.815510557964, 1e-4);
-        assert_close("ln(0.0001)", ln_fixed(f(0.0001)).unwrap(), -9.210340371976, 1e-4);
+        assert_close(
+            "ln(0.0001)",
+            ln_fixed(f(0.0001)).unwrap(),
+            -9.210340371976,
+            1e-4,
+        );
         // Error on non-positive
         assert!(ln_fixed(ZERO).is_err());
         assert!(ln_fixed(f(-1.0)).is_err());
@@ -647,7 +704,12 @@ mod tests {
             (3.0, 0.004431848411938),
         ];
         for &(z, expected) in cases {
-            assert_close(&format!("phi({z})"), phi_fixed(f(z)).unwrap(), expected, 1e-6);
+            assert_close(
+                &format!("phi({z})"),
+                phi_fixed(f(z)).unwrap(),
+                expected,
+                1e-6,
+            );
         }
         // Symmetry: phi(z) == phi(-z)
         for z in [0.5, 1.0, 2.0, 3.0] {
@@ -675,18 +737,32 @@ mod tests {
             (3.0, 0.998650101968370),
         ];
         for &(z, expected) in cases {
-            assert_close(&format!("Phi({z})"), capital_phi_fixed(f(z)).unwrap(), expected, 1e-5);
+            assert_close(
+                &format!("Phi({z})"),
+                capital_phi_fixed(f(z)).unwrap(),
+                expected,
+                1e-5,
+            );
         }
         // Symmetry: Phi(z) + Phi(-z) = 1
         for z in [0.5, 1.0, 1.5, 2.0, 2.5, 3.0] {
-            let sum: f64 = (capital_phi_fixed(f(z)).unwrap() + capital_phi_fixed(f(-z)).unwrap()).to_num();
-            assert!((sum - 1.0).abs() < 1e-6, "Phi symmetry broken at z={z}: sum={sum}");
+            let sum: f64 =
+                (capital_phi_fixed(f(z)).unwrap() + capital_phi_fixed(f(-z)).unwrap()).to_num();
+            assert!(
+                (sum - 1.0).abs() < 1e-6,
+                "Phi symmetry broken at z={z}: sum={sum}"
+            );
         }
         // Extreme z: Phi(10) → 1, Phi(-10) → 0 (no error)
         assert_close("Phi(10)", capital_phi_fixed(f(10.0)).unwrap(), 1.0, 1e-10);
         assert_close("Phi(-10)", capital_phi_fixed(f(-10.0)).unwrap(), 0.0, 1e-10);
         assert_close("Phi(100)", capital_phi_fixed(f(100.0)).unwrap(), 1.0, 1e-10);
-        assert_close("Phi(-100)", capital_phi_fixed(f(-100.0)).unwrap(), 0.0, 1e-10);
+        assert_close(
+            "Phi(-100)",
+            capital_phi_fixed(f(-100.0)).unwrap(),
+            0.0,
+            1e-10,
+        );
     }
 
     #[test]
@@ -705,7 +781,12 @@ mod tests {
             (0.99, 2.326347874040841, 1e-3),
         ];
         for &(p, expected, tol) in cases {
-            assert_close(&format!("Phi_inv({p})"), capital_phi_inv_fixed(f(p)).unwrap(), expected, tol);
+            assert_close(
+                &format!("Phi_inv({p})"),
+                capital_phi_inv_fixed(f(p)).unwrap(),
+                expected,
+                tol,
+            );
         }
     }
 
@@ -717,7 +798,8 @@ mod tests {
             let rt: f64 = capital_phi_fixed(z).unwrap().to_num();
             assert!(
                 (rt - p).abs() < 1e-4,
-                "Phi(Phi_inv({p})) = {rt}, err={:.2e}", (rt - p).abs()
+                "Phi(Phi_inv({p})) = {rt}, err={:.2e}",
+                (rt - p).abs()
             );
         }
     }
@@ -725,11 +807,31 @@ mod tests {
     #[test]
     fn test_erf() {
         assert_close("erf(0)", erf_fixed(ZERO).unwrap(), 0.0, 1e-7);
-        assert_close("erf(0.5)", erf_fixed(f(0.5)).unwrap(), 0.520499877813047, 1e-6);
+        assert_close(
+            "erf(0.5)",
+            erf_fixed(f(0.5)).unwrap(),
+            0.520499877813047,
+            1e-6,
+        );
         assert_close("erf(1)", erf_fixed(ONE).unwrap(), 0.842700792949715, 1e-6);
-        assert_close("erf(-1)", erf_fixed(f(-1.0)).unwrap(), -0.842700792949715, 1e-6);
-        assert_close("erf(2)", erf_fixed(f(2.0)).unwrap(), 0.995322265018953, 1e-6);
-        assert_close("erf(3)", erf_fixed(f(3.0)).unwrap(), 0.999977909503001, 1e-5);
+        assert_close(
+            "erf(-1)",
+            erf_fixed(f(-1.0)).unwrap(),
+            -0.842700792949715,
+            1e-6,
+        );
+        assert_close(
+            "erf(2)",
+            erf_fixed(f(2.0)).unwrap(),
+            0.995322265018953,
+            1e-6,
+        );
+        assert_close(
+            "erf(3)",
+            erf_fixed(f(3.0)).unwrap(),
+            0.999977909503001,
+            1e-5,
+        );
     }
 
     // ================================================================
@@ -780,11 +882,13 @@ mod tests {
             let x_hi_f: f64 = x_hi.to_num();
             assert!(
                 (x_lo_f - y_hi_f).abs() < 0.5,
-                "x({p}) != y({:.1}): {x_lo_f:.3} vs {y_hi_f:.3}", 1.0 - p
+                "x({p}) != y({:.1}): {x_lo_f:.3} vs {y_hi_f:.3}",
+                1.0 - p
             );
             assert!(
                 (y_lo_f - x_hi_f).abs() < 0.5,
-                "y({p}) != x({:.1}): {y_lo_f:.3} vs {x_hi_f:.3}", 1.0 - p
+                "y({p}) != x({:.1}): {y_lo_f:.3} vs {x_hi_f:.3}",
+                1.0 - p
             );
         }
     }
@@ -825,10 +929,7 @@ mod tests {
             for p in [0.2, 0.5, 0.8] {
                 let (x, y) = reserves_from_price(f(p), f(lv)).unwrap();
                 let inv: f64 = invariant_value(x, y, f(lv)).unwrap().to_num();
-                assert!(
-                    inv.abs() < 0.01,
-                    "Invariant at P={p}, L={lv}: {inv:.6e}"
-                );
+                assert!(inv.abs() < 0.01, "Invariant at P={p}, L={lv}: {inv:.6e}");
             }
         }
     }
@@ -845,7 +946,8 @@ mod tests {
             let p_rt: f64 = price_from_reserves(x, y, l).unwrap().to_num();
             assert!(
                 (p_rt - p).abs() < 0.001,
-                "Price roundtrip at P={p}: got={p_rt:.6}, err={:.6}", (p_rt - p).abs()
+                "Price roundtrip at P={p}: got={p_rt:.6}, err={:.6}",
+                (p_rt - p).abs()
             );
         }
     }
@@ -884,7 +986,8 @@ mod tests {
             let v2: f64 = pool_value(f(1.0 - p), l).unwrap().to_num();
             assert!(
                 (v1 - v2).abs() < 0.5,
-                "V({p}) != V({:.1}): {v1:.3} vs {v2:.3}", 1.0 - p
+                "V({p}) != V({:.1}): {v1:.3} vs {v2:.3}",
+                1.0 - p
             );
         }
         // V is maximal at P=0.5
@@ -915,8 +1018,14 @@ mod tests {
             let r = compute_swap_output(x, y, l, f(delta), SwapSide::Usdc, SwapSide::Yes).unwrap();
             let out: f64 = r.output.to_num();
             let pn: f64 = r.price_new.to_num();
-            assert!((out - exp_out).abs() < 0.5, "{delta} USDC->YES: got={out:.3}, expected={exp_out:.3}");
-            assert!((pn - exp_price).abs() < 0.001, "{delta} price_new: got={pn:.5}, expected={exp_price:.5}");
+            assert!(
+                (out - exp_out).abs() < 0.5,
+                "{delta} USDC->YES: got={out:.3}, expected={exp_out:.3}"
+            );
+            assert!(
+                (pn - exp_price).abs() < 0.001,
+                "{delta} price_new: got={pn:.5}, expected={exp_price:.5}"
+            );
             // Invariant must hold
             let inv: f64 = invariant_value(r.x_new, r.y_new, l).unwrap().to_num();
             assert!(inv.abs() < 0.01, "Invariant after swap {delta}: {inv:.6e}");
@@ -933,7 +1042,10 @@ mod tests {
         // By symmetry at P=0.5, USDC->NO output == USDC->YES output
         let r_yes = compute_swap_output(x, y, l, f(100.0), SwapSide::Usdc, SwapSide::Yes).unwrap();
         let out_yes: f64 = r_yes.output.to_num();
-        assert!((out - out_yes).abs() < 0.5, "USDC->NO != USDC->YES at P=0.5: {out:.3} vs {out_yes:.3}");
+        assert!(
+            (out - out_yes).abs() < 0.5,
+            "USDC->NO != USDC->YES at P=0.5: {out:.3} vs {out_yes:.3}"
+        );
         // Price should decrease (buying NO = selling YES)
         let pn: f64 = r.price_new.to_num();
         assert!(pn < 0.5, "Price should decrease after buying NO: {pn}");
@@ -1002,7 +1114,15 @@ mod tests {
         let l = f(1000.0);
         let (x, y) = reserves_from_price(HALF, l).unwrap();
         let r1 = compute_swap_output(x, y, l, f(10.0), SwapSide::Usdc, SwapSide::Yes).unwrap();
-        let r2 = compute_swap_output(r1.x_new, r1.y_new, l, r1.output, SwapSide::Yes, SwapSide::Usdc).unwrap();
+        let r2 = compute_swap_output(
+            r1.x_new,
+            r1.y_new,
+            l,
+            r1.output,
+            SwapSide::Yes,
+            SwapSide::Usdc,
+        )
+        .unwrap();
         let back: f64 = r2.output.to_num();
         let loss = (back - 10.0).abs() / 10.0;
         assert!(loss < 0.001, "USDC->YES->USDC round-trip loss: {loss:.6}");
@@ -1013,7 +1133,15 @@ mod tests {
         let l = f(1000.0);
         let (x, y) = reserves_from_price(HALF, l).unwrap();
         let r1 = compute_swap_output(x, y, l, f(10.0), SwapSide::Usdc, SwapSide::No).unwrap();
-        let r2 = compute_swap_output(r1.x_new, r1.y_new, l, r1.output, SwapSide::No, SwapSide::Usdc).unwrap();
+        let r2 = compute_swap_output(
+            r1.x_new,
+            r1.y_new,
+            l,
+            r1.output,
+            SwapSide::No,
+            SwapSide::Usdc,
+        )
+        .unwrap();
         let back: f64 = r2.output.to_num();
         let loss = (back - 10.0).abs() / 10.0;
         assert!(loss < 0.001, "USDC->NO->USDC round-trip loss: {loss:.6}");
@@ -1024,7 +1152,15 @@ mod tests {
         let l = f(1000.0);
         let (x, y) = reserves_from_price(HALF, l).unwrap();
         let r1 = compute_swap_output(x, y, l, f(10.0), SwapSide::Yes, SwapSide::No).unwrap();
-        let r2 = compute_swap_output(r1.x_new, r1.y_new, l, r1.output, SwapSide::No, SwapSide::Yes).unwrap();
+        let r2 = compute_swap_output(
+            r1.x_new,
+            r1.y_new,
+            l,
+            r1.output,
+            SwapSide::No,
+            SwapSide::Yes,
+        )
+        .unwrap();
         let back: f64 = r2.output.to_num();
         let loss = (back - 10.0).abs() / 10.0;
         assert!(loss < 0.001, "YES->NO->YES round-trip loss: {loss:.6}");

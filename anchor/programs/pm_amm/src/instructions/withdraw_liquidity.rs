@@ -77,7 +77,10 @@ pub fn handler(ctx: Context<WithdrawLiquidity>, shares_to_burn: u128) -> Result<
         require!(burn_shares <= lp_shares, PmAmmError::InsufficientLiquidity);
 
         let total_shares = market.total_lp_shares_fixed();
-        require!(total_shares > I80F48::ZERO, PmAmmError::InsufficientLiquidity);
+        require!(
+            total_shares > I80F48::ZERO,
+            PmAmmError::InsufficientLiquidity
+        );
 
         // Auto-claim pending residuals
         let (pending_yes, pending_no) = accrual::compute_lp_pending(

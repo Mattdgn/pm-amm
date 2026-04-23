@@ -89,27 +89,55 @@ impl Market {
 
     // --- Q64.64 helpers ---
 
-    pub fn l_zero_fixed(&self) -> I80F48 { I80F48::from_bits(self.l_zero as i128) }
-    pub fn set_l_zero_fixed(&mut self, v: I80F48) { self.l_zero = v.to_bits() as u128; }
+    pub fn l_zero_fixed(&self) -> I80F48 {
+        I80F48::from_bits(self.l_zero as i128)
+    }
+    pub fn set_l_zero_fixed(&mut self, v: I80F48) {
+        self.l_zero = v.to_bits() as u128;
+    }
 
-    pub fn reserve_yes_fixed(&self) -> I80F48 { I80F48::from_bits(self.reserve_yes as i128) }
-    pub fn set_reserve_yes_fixed(&mut self, v: I80F48) { self.reserve_yes = v.to_bits() as u128; }
+    pub fn reserve_yes_fixed(&self) -> I80F48 {
+        I80F48::from_bits(self.reserve_yes as i128)
+    }
+    pub fn set_reserve_yes_fixed(&mut self, v: I80F48) {
+        self.reserve_yes = v.to_bits() as u128;
+    }
 
-    pub fn reserve_no_fixed(&self) -> I80F48 { I80F48::from_bits(self.reserve_no as i128) }
-    pub fn set_reserve_no_fixed(&mut self, v: I80F48) { self.reserve_no = v.to_bits() as u128; }
+    pub fn reserve_no_fixed(&self) -> I80F48 {
+        I80F48::from_bits(self.reserve_no as i128)
+    }
+    pub fn set_reserve_no_fixed(&mut self, v: I80F48) {
+        self.reserve_no = v.to_bits() as u128;
+    }
 
-    pub fn cum_yes_per_share_fixed(&self) -> I80F48 { I80F48::from_bits(self.cum_yes_per_share as i128) }
-    pub fn set_cum_yes_per_share_fixed(&mut self, v: I80F48) { self.cum_yes_per_share = v.to_bits() as u128; }
+    pub fn cum_yes_per_share_fixed(&self) -> I80F48 {
+        I80F48::from_bits(self.cum_yes_per_share as i128)
+    }
+    pub fn set_cum_yes_per_share_fixed(&mut self, v: I80F48) {
+        self.cum_yes_per_share = v.to_bits() as u128;
+    }
 
-    pub fn cum_no_per_share_fixed(&self) -> I80F48 { I80F48::from_bits(self.cum_no_per_share as i128) }
-    pub fn set_cum_no_per_share_fixed(&mut self, v: I80F48) { self.cum_no_per_share = v.to_bits() as u128; }
+    pub fn cum_no_per_share_fixed(&self) -> I80F48 {
+        I80F48::from_bits(self.cum_no_per_share as i128)
+    }
+    pub fn set_cum_no_per_share_fixed(&mut self, v: I80F48) {
+        self.cum_no_per_share = v.to_bits() as u128;
+    }
 
-    pub fn total_lp_shares_fixed(&self) -> I80F48 { I80F48::from_bits(self.total_lp_shares as i128) }
-    pub fn set_total_lp_shares_fixed(&mut self, v: I80F48) { self.total_lp_shares = v.to_bits() as u128; }
+    pub fn total_lp_shares_fixed(&self) -> I80F48 {
+        I80F48::from_bits(self.total_lp_shares as i128)
+    }
+    pub fn set_total_lp_shares_fixed(&mut self, v: I80F48) {
+        self.total_lp_shares = v.to_bits() as u128;
+    }
 
     /// Return the market name as a UTF-8 string (trailing zeros trimmed).
     pub fn name_str(&self) -> &str {
-        let len = self.name.iter().position(|&b| b == 0).unwrap_or(self.name.len());
+        let len = self
+            .name
+            .iter()
+            .position(|&b| b == 0)
+            .unwrap_or(self.name.len());
         core::str::from_utf8(&self.name[..len]).unwrap_or("")
     }
 

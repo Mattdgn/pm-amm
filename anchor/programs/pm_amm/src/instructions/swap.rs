@@ -72,7 +72,12 @@ pub struct Swap<'info> {
 }
 
 /// Swap between USDC, YES, and NO tokens (6 directions).
-pub fn handler(ctx: Context<Swap>, direction: SwapDirection, amount_in: u64, min_output: u64) -> Result<()> {
+pub fn handler(
+    ctx: Context<Swap>,
+    direction: SwapDirection,
+    amount_in: u64,
+    min_output: u64,
+) -> Result<()> {
     let clock = Clock::get()?;
     let now = clock.unix_timestamp;
     require!(amount_in > 0, PmAmmError::InvalidBudget);
@@ -93,8 +98,12 @@ pub fn handler(ctx: Context<Swap>, direction: SwapDirection, amount_in: u64, min
         let l_eff = market.l_effective(now)?;
         let (side_in, side_out) = direction.to_sides();
         let result = pm_math::compute_swap_output(
-            market.reserve_yes_fixed(), market.reserve_no_fixed(),
-            l_eff, I80F48::from_num(amount_in), side_in, side_out,
+            market.reserve_yes_fixed(),
+            market.reserve_no_fixed(),
+            l_eff,
+            I80F48::from_num(amount_in),
+            side_in,
+            side_out,
         )?;
 
         output_u64 = result.output.max(I80F48::ZERO).to_num::<u64>();
@@ -125,76 +134,154 @@ pub fn handler(ctx: Context<Swap>, direction: SwapDirection, amount_in: u64, min
 
     match direction {
         SwapDirection::UsdcToYes => {
-            token::transfer(CpiContext::new(tp, Transfer {
-                from: ctx.accounts.user_collateral.to_account_info(),
-                to: ctx.accounts.vault.to_account_info(),
-                authority: ctx.accounts.signer.to_account_info(),
-            }), amount_in)?;
-            token::mint_to(CpiContext::new_with_signer(tp, MintTo {
-                mint: ctx.accounts.yes_mint.to_account_info(),
-                to: ctx.accounts.user_yes.to_account_info(),
-                authority: market_info,
-            }, seeds), output_u64)?;
+            token::transfer(
+                CpiContext::new(
+                    tp,
+                    Transfer {
+                        from: ctx.accounts.user_collateral.to_account_info(),
+                        to: ctx.accounts.vault.to_account_info(),
+                        authority: ctx.accounts.signer.to_account_info(),
+                    },
+                ),
+                amount_in,
+            )?;
+            token::mint_to(
+                CpiContext::new_with_signer(
+                    tp,
+                    MintTo {
+                        mint: ctx.accounts.yes_mint.to_account_info(),
+                        to: ctx.accounts.user_yes.to_account_info(),
+                        authority: market_info,
+                    },
+                    seeds,
+                ),
+                output_u64,
+            )?;
         }
         SwapDirection::UsdcToNo => {
-            token::transfer(CpiContext::new(tp, Transfer {
-                from: ctx.accounts.user_collateral.to_account_info(),
-                to: ctx.accounts.vault.to_account_info(),
-                authority: ctx.accounts.signer.to_account_info(),
-            }), amount_in)?;
-            token::mint_to(CpiContext::new_with_signer(tp, MintTo {
-                mint: ctx.accounts.no_mint.to_account_info(),
-                to: ctx.accounts.user_no.to_account_info(),
-                authority: market_info,
-            }, seeds), output_u64)?;
+            token::transfer(
+                CpiContext::new(
+                    tp,
+                    Transfer {
+                        from: ctx.accounts.user_collateral.to_account_info(),
+                        to: ctx.accounts.vault.to_account_info(),
+                        authority: ctx.accounts.signer.to_account_info(),
+                    },
+                ),
+                amount_in,
+            )?;
+            token::mint_to(
+                CpiContext::new_with_signer(
+                    tp,
+                    MintTo {
+                        mint: ctx.accounts.no_mint.to_account_info(),
+                        to: ctx.accounts.user_no.to_account_info(),
+                        authority: market_info,
+                    },
+                    seeds,
+                ),
+                output_u64,
+            )?;
         }
         SwapDirection::YesToUsdc => {
-            token::burn(CpiContext::new(tp, Burn {
-                mint: ctx.accounts.yes_mint.to_account_info(),
-                from: ctx.accounts.user_yes.to_account_info(),
-                authority: ctx.accounts.signer.to_account_info(),
-            }), amount_in)?;
-            token::transfer(CpiContext::new_with_signer(tp, Transfer {
-                from: ctx.accounts.vault.to_account_info(),
-                to: ctx.accounts.user_collateral.to_account_info(),
-                authority: market_info,
-            }, seeds), output_u64)?;
+            token::burn(
+                CpiContext::new(
+                    tp,
+                    Burn {
+                        mint: ctx.accounts.yes_mint.to_account_info(),
+                        from: ctx.accounts.user_yes.to_account_info(),
+                        authority: ctx.accounts.signer.to_account_info(),
+                    },
+                ),
+                amount_in,
+            )?;
+            token::transfer(
+                CpiContext::new_with_signer(
+                    tp,
+                    Transfer {
+                        from: ctx.accounts.vault.to_account_info(),
+                        to: ctx.accounts.user_collateral.to_account_info(),
+                        authority: market_info,
+                    },
+                    seeds,
+                ),
+                output_u64,
+            )?;
         }
         SwapDirection::NoToUsdc => {
-            token::burn(CpiContext::new(tp, Burn {
-                mint: ctx.accounts.no_mint.to_account_info(),
-                from: ctx.accounts.user_no.to_account_info(),
-                authority: ctx.accounts.signer.to_account_info(),
-            }), amount_in)?;
-            token::transfer(CpiContext::new_with_signer(tp, Transfer {
-                from: ctx.accounts.vault.to_account_info(),
-                to: ctx.accounts.user_collateral.to_account_info(),
-                authority: market_info,
-            }, seeds), output_u64)?;
+            token::burn(
+                CpiContext::new(
+                    tp,
+                    Burn {
+                        mint: ctx.accounts.no_mint.to_account_info(),
+                        from: ctx.accounts.user_no.to_account_info(),
+                        authority: ctx.accounts.signer.to_account_info(),
+                    },
+                ),
+                amount_in,
+            )?;
+            token::transfer(
+                CpiContext::new_with_signer(
+                    tp,
+                    Transfer {
+                        from: ctx.accounts.vault.to_account_info(),
+                        to: ctx.accounts.user_collateral.to_account_info(),
+                        authority: market_info,
+                    },
+                    seeds,
+                ),
+                output_u64,
+            )?;
         }
         SwapDirection::YesToNo => {
-            token::burn(CpiContext::new(tp, Burn {
-                mint: ctx.accounts.yes_mint.to_account_info(),
-                from: ctx.accounts.user_yes.to_account_info(),
-                authority: ctx.accounts.signer.to_account_info(),
-            }), amount_in)?;
-            token::mint_to(CpiContext::new_with_signer(tp, MintTo {
-                mint: ctx.accounts.no_mint.to_account_info(),
-                to: ctx.accounts.user_no.to_account_info(),
-                authority: market_info,
-            }, seeds), output_u64)?;
+            token::burn(
+                CpiContext::new(
+                    tp,
+                    Burn {
+                        mint: ctx.accounts.yes_mint.to_account_info(),
+                        from: ctx.accounts.user_yes.to_account_info(),
+                        authority: ctx.accounts.signer.to_account_info(),
+                    },
+                ),
+                amount_in,
+            )?;
+            token::mint_to(
+                CpiContext::new_with_signer(
+                    tp,
+                    MintTo {
+                        mint: ctx.accounts.no_mint.to_account_info(),
+                        to: ctx.accounts.user_no.to_account_info(),
+                        authority: market_info,
+                    },
+                    seeds,
+                ),
+                output_u64,
+            )?;
         }
         SwapDirection::NoToYes => {
-            token::burn(CpiContext::new(tp, Burn {
-                mint: ctx.accounts.no_mint.to_account_info(),
-                from: ctx.accounts.user_no.to_account_info(),
-                authority: ctx.accounts.signer.to_account_info(),
-            }), amount_in)?;
-            token::mint_to(CpiContext::new_with_signer(tp, MintTo {
-                mint: ctx.accounts.yes_mint.to_account_info(),
-                to: ctx.accounts.user_yes.to_account_info(),
-                authority: market_info,
-            }, seeds), output_u64)?;
+            token::burn(
+                CpiContext::new(
+                    tp,
+                    Burn {
+                        mint: ctx.accounts.no_mint.to_account_info(),
+                        from: ctx.accounts.user_no.to_account_info(),
+                        authority: ctx.accounts.signer.to_account_info(),
+                    },
+                ),
+                amount_in,
+            )?;
+            token::mint_to(
+                CpiContext::new_with_signer(
+                    tp,
+                    MintTo {
+                        mint: ctx.accounts.yes_mint.to_account_info(),
+                        to: ctx.accounts.user_yes.to_account_info(),
+                        authority: market_info,
+                    },
+                    seeds,
+                ),
+                output_u64,
+            )?;
         }
     }
 

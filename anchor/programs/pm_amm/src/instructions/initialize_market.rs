@@ -4,11 +4,11 @@
 
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
-use anchor_spl::token::{Mint, Token, TokenAccount};
 use anchor_spl::metadata::mpl_token_metadata::instructions::{
     CreateMetadataAccountV3, CreateMetadataAccountV3InstructionArgs,
 };
 use anchor_spl::metadata::mpl_token_metadata::types::DataV2;
+use anchor_spl::token::{Mint, Token, TokenAccount};
 
 use crate::errors::PmAmmError;
 use crate::state::Market;
@@ -96,8 +96,14 @@ pub fn handler(
     /// Minimum market duration in seconds (5 minutes).
     const MIN_DURATION_SECS: i64 = 300;
 
-    require!(end_ts > now + MIN_DURATION_SECS, PmAmmError::InvalidDuration);
-    require!(!name.is_empty() && name.len() <= 64, PmAmmError::InvalidName);
+    require!(
+        end_ts > now + MIN_DURATION_SECS,
+        PmAmmError::InvalidDuration
+    );
+    require!(
+        !name.is_empty() && name.len() <= 64,
+        PmAmmError::InvalidName
+    );
 
     let market = &mut ctx.accounts.market;
 
@@ -230,7 +236,14 @@ fn create_token_metadata<'info>(
 
     invoke_signed(
         &ix,
-        &[metadata_ai, mint_ai, authority_ai.clone(), payer_ai, system_ai, rent_ai],
+        &[
+            metadata_ai,
+            mint_ai,
+            authority_ai.clone(),
+            payer_ai,
+            system_ai,
+            rent_ai,
+        ],
         &[signer_seeds],
     )?;
 

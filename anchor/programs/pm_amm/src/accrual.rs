@@ -266,19 +266,15 @@ mod tests {
         assert!(nr > 0.0, "no_released should be > 0, got {nr}");
 
         // At P=0.5, yes_released == no_released (symmetry)
-        assert!(
-            (yr - nr).abs() < 0.01,
-            "At P=0.5, yes == no: {yr} vs {nr}"
-        );
+        assert!((yr - nr).abs() < 0.01, "At P=0.5, yes == no: {yr} vs {nr}");
 
         // Value ~ V_t / (2*(T-t)) * dt (paper section 8)
-        let l_eff: f64 = pm_math::l_effective(
-            market.l_zero_fixed(), end - start
-        ).unwrap().to_num();
-        let v_0: f64 = pm_math::pool_value(
-            I80F48::from_num(0.5),
-            I80F48::from_num(l_eff),
-        ).unwrap().to_num();
+        let l_eff: f64 = pm_math::l_effective(market.l_zero_fixed(), end - start)
+            .unwrap()
+            .to_num();
+        let v_0: f64 = pm_math::pool_value(I80F48::from_num(0.5), I80F48::from_num(l_eff))
+            .unwrap()
+            .to_num();
         let expected_daily = v_0 / (2.0 * 7.0);
         // Released value ≈ yes_released (at P=0.5, each YES+NO pair = 1 USDC,
         // and yes=no, so value ≈ 2 * yes * 0.5 = yes)
@@ -317,7 +313,9 @@ mod tests {
         let v_0: f64 = pm_math::pool_value(
             I80F48::from_num(0.5),
             pm_math::l_effective(market.l_zero_fixed(), end - start).unwrap(),
-        ).unwrap().to_num();
+        )
+        .unwrap()
+        .to_num();
 
         let mut total_yes: f64 = 0.0;
         let mut total_no: f64 = 0.0;
@@ -355,12 +353,14 @@ mod tests {
 
             let result = compute_accrual(&market, now).unwrap();
 
-            let l_eff_new = pm_math::l_effective(
-                market.l_zero_fixed(), end - now
-            ).unwrap();
+            let l_eff_new = pm_math::l_effective(market.l_zero_fixed(), end - now).unwrap();
             let p_new: f64 = pm_math::price_from_reserves(
-                result.new_reserve_yes, result.new_reserve_no, l_eff_new,
-            ).unwrap().to_num();
+                result.new_reserve_yes,
+                result.new_reserve_no,
+                l_eff_new,
+            )
+            .unwrap()
+            .to_num();
 
             assert!(
                 (p_new - p).abs() < 0.001,
@@ -381,12 +381,11 @@ mod tests {
 
             let result = compute_accrual(&market, now).unwrap();
 
-            let l_eff_new = pm_math::l_effective(
-                market.l_zero_fixed(), end - now
-            ).unwrap();
-            let inv: f64 = pm_math::invariant_value(
-                result.new_reserve_yes, result.new_reserve_no, l_eff_new,
-            ).unwrap().to_num();
+            let l_eff_new = pm_math::l_effective(market.l_zero_fixed(), end - now).unwrap();
+            let inv: f64 =
+                pm_math::invariant_value(result.new_reserve_yes, result.new_reserve_no, l_eff_new)
+                    .unwrap()
+                    .to_num();
 
             assert!(
                 inv.abs() < 0.01,
@@ -493,8 +492,10 @@ mod tests {
         let cum = I80F48::from_num(50);
         let (py, pn) = compute_lp_pending(
             I80F48::from_num(100), // shares
-            cum, cum,              // checkpoints = current cum
-            cum, cum,              // cum values
+            cum,
+            cum, // checkpoints = current cum
+            cum,
+            cum, // cum values
         );
         assert_eq!(py, I80F48::ZERO);
         assert_eq!(pn, I80F48::ZERO);
@@ -526,7 +527,10 @@ mod tests {
         let result = compute_accrual(&market, end + 86400 * 7).unwrap();
         assert!(!result.is_noop);
         let yr: f64 = result.yes_released.to_num();
-        assert!((yr - x_old).abs() < 0.01, "Should release all YES: {yr} vs {x_old}");
+        assert!(
+            (yr - x_old).abs() < 0.01,
+            "Should release all YES: {yr} vs {x_old}"
+        );
         assert_eq!(result.new_reserve_yes, I80F48::ZERO);
         assert_eq!(result.new_last_accrual_ts, end); // clamped to end_ts
     }
@@ -549,7 +553,9 @@ mod tests {
 
         // Pending should equal released (single LP owns all shares)
         let (py, _pn) = compute_lp_pending(
-            lp_shares, cp_yes, cp_no,
+            lp_shares,
+            cp_yes,
+            cp_no,
             market.cum_yes_per_share_fixed(),
             market.cum_no_per_share_fixed(),
         );
@@ -565,7 +571,9 @@ mod tests {
         apply_accrual(&mut market, &r2);
 
         let (py2, _) = compute_lp_pending(
-            lp_shares, cp_yes, cp_no,
+            lp_shares,
+            cp_yes,
+            cp_no,
             market.cum_yes_per_share_fixed(),
             market.cum_no_per_share_fixed(),
         );

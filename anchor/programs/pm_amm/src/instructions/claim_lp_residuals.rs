@@ -76,10 +76,7 @@ pub fn handler(ctx: Context<ClaimLpResiduals>) -> Result<()> {
         yes_u64 = pending_yes.max(I80F48::ZERO).to_num::<u64>();
         no_u64 = pending_no.max(I80F48::ZERO).to_num::<u64>();
 
-        require!(
-            yes_u64 > 0 || no_u64 > 0,
-            PmAmmError::NoResidualsToClaim
-        );
+        require!(yes_u64 > 0 || no_u64 > 0, PmAmmError::NoResidualsToClaim);
 
         market_id_bytes = market.market_id.to_le_bytes();
         bump = market.bump;

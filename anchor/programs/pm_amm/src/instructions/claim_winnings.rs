@@ -94,17 +94,31 @@ pub fn handler(ctx: Context<ClaimWinnings>, _amount: u64) -> Result<()> {
                 ctx.accounts.no_mint.to_account_info(),
             ),
         };
-        token::burn(CpiContext::new(tp, Burn {
-            mint, from,
-            authority: ctx.accounts.signer.to_account_info(),
-        }), winning_balance)?;
+        token::burn(
+            CpiContext::new(
+                tp,
+                Burn {
+                    mint,
+                    from,
+                    authority: ctx.accounts.signer.to_account_info(),
+                },
+            ),
+            winning_balance,
+        )?;
 
         if payout > 0 {
-            token::transfer(CpiContext::new_with_signer(tp, Transfer {
-                from: ctx.accounts.vault.to_account_info(),
-                to: ctx.accounts.user_collateral.to_account_info(),
-                authority: ctx.accounts.market.to_account_info(),
-            }, seeds), payout)?;
+            token::transfer(
+                CpiContext::new_with_signer(
+                    tp,
+                    Transfer {
+                        from: ctx.accounts.vault.to_account_info(),
+                        to: ctx.accounts.user_collateral.to_account_info(),
+                        authority: ctx.accounts.market.to_account_info(),
+                    },
+                    seeds,
+                ),
+                payout,
+            )?;
         }
     }
 
@@ -120,10 +134,17 @@ pub fn handler(ctx: Context<ClaimWinnings>, _amount: u64) -> Result<()> {
                 ctx.accounts.yes_mint.to_account_info(),
             ),
         };
-        token::burn(CpiContext::new(tp, Burn {
-            mint, from,
-            authority: ctx.accounts.signer.to_account_info(),
-        }), losing_balance)?;
+        token::burn(
+            CpiContext::new(
+                tp,
+                Burn {
+                    mint,
+                    from,
+                    authority: ctx.accounts.signer.to_account_info(),
+                },
+            ),
+            losing_balance,
+        )?;
     }
 
     // --- Close empty token accounts → rent back to signer ---
@@ -132,21 +153,31 @@ pub fn handler(ctx: Context<ClaimWinnings>, _amount: u64) -> Result<()> {
     ctx.accounts.user_no.reload()?;
 
     if ctx.accounts.user_yes.amount == 0 {
-        token::close_account(CpiContext::new(tp, CloseAccount {
-            account: ctx.accounts.user_yes.to_account_info(),
-            destination: ctx.accounts.signer.to_account_info(),
-            authority: ctx.accounts.signer.to_account_info(),
-        }))?;
+        token::close_account(CpiContext::new(
+            tp,
+            CloseAccount {
+                account: ctx.accounts.user_yes.to_account_info(),
+                destination: ctx.accounts.signer.to_account_info(),
+                authority: ctx.accounts.signer.to_account_info(),
+            },
+        ))?;
     }
     if ctx.accounts.user_no.amount == 0 {
-        token::close_account(CpiContext::new(tp, CloseAccount {
-            account: ctx.accounts.user_no.to_account_info(),
-            destination: ctx.accounts.signer.to_account_info(),
-            authority: ctx.accounts.signer.to_account_info(),
-        }))?;
+        token::close_account(CpiContext::new(
+            tp,
+            CloseAccount {
+                account: ctx.accounts.user_no.to_account_info(),
+                destination: ctx.accounts.signer.to_account_info(),
+                authority: ctx.accounts.signer.to_account_info(),
+            },
+        ))?;
     }
 
-    msg!("Settled: {} USDC paid, {} losing burned, accounts closed", payout, losing_balance);
+    msg!(
+        "Settled: {} USDC paid, {} losing burned, accounts closed",
+        payout,
+        losing_balance
+    );
 
     Ok(())
 }

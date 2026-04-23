@@ -81,10 +81,15 @@ pub fn handler(ctx: Context<DepositLiquidity>, amount: u64) -> Result<()> {
         } else {
             let l_eff = market.l_effective(now)?;
             let price = pm_math::price_from_reserves(
-                market.reserve_yes_fixed(), market.reserve_no_fixed(), l_eff,
+                market.reserve_yes_fixed(),
+                market.reserve_no_fixed(),
+                l_eff,
             )?;
             let current_value = pm_math::pool_value(price, l_eff)?;
-            require!(current_value > I80F48::ZERO, PmAmmError::InsufficientLiquidity);
+            require!(
+                current_value > I80F48::ZERO,
+                PmAmmError::InsufficientLiquidity
+            );
 
             let total_shares = market.total_lp_shares_fixed();
             new_shares = amount_fixed * total_shares / current_value;
