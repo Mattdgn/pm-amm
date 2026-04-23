@@ -415,7 +415,11 @@ fn find_x_from_y(y_target: I80F48, l_eff: I80F48) -> Result<I80F48> {
     for _ in 0..20 {
         let mid = (lo + hi) / TWO;
         let (_, y_mid) = xy_from_u_fast(mid, l_eff);
-        if y_mid < y_target { lo = mid; } else { hi = mid; }
+        if y_mid < y_target {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
     }
     let u_best = (lo + hi) / TWO;
     let (x, _) = xy_from_u_fast(u_best, l_eff);
@@ -430,7 +434,11 @@ fn find_y_from_x(x_target: I80F48, l_eff: I80F48) -> Result<I80F48> {
     for _ in 0..20 {
         let mid = (lo + hi) / TWO;
         let (x_mid, _) = xy_from_u_fast(mid, l_eff);
-        if x_mid > x_target { lo = mid; } else { hi = mid; }
+        if x_mid > x_target {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
     }
     let u_best = (lo + hi) / TWO;
     let (_, y) = xy_from_u_fast(u_best, l_eff);
@@ -1371,7 +1379,8 @@ mod tests {
             assert!(
                 out > 0.0,
                 "Swap {:?}->{:?} output must be > 0, got {out}",
-                side_in, side_out
+                side_in,
+                side_out
             );
             // Verify invariant on new reserves
             let inv: f64 = invariant_value(result.x_new, result.y_new, l_eff)
@@ -1380,7 +1389,8 @@ mod tests {
             assert!(
                 inv.abs() < 0.01,
                 "Swap {:?}->{:?} invariant broken: {inv:.6e}",
-                side_in, side_out
+                side_in,
+                side_out
             );
         }
     }
@@ -1393,8 +1403,7 @@ mod tests {
         let large_delta = f(800.0); // 80% of typical reserve
 
         let result =
-            compute_swap_output(x, y, l_eff, large_delta, SwapSide::Usdc, SwapSide::Yes)
-                .unwrap();
+            compute_swap_output(x, y, l_eff, large_delta, SwapSide::Usdc, SwapSide::Yes).unwrap();
         let out: f64 = result.output.to_num();
         assert!(out > 0.0, "Large delta output: {out}");
 
