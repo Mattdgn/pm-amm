@@ -72,7 +72,7 @@ Source of truth for ALL math. Always cross-check before implementing.
 
 ## Current Sprint
 
-Sprint 16 — Open Source Readiness (`doc/sprints/sprint-16-open-source.md`)
+Sprint 17 — Swap CU Optimization (`doc/sprints/sprint-17-cu-optimization.md`)
 
 ## Rules
 
