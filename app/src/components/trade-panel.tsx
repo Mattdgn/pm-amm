@@ -252,12 +252,12 @@ export function TradePanel({
                   <>
                     <MetaRow label="You receive" value={`${outputDisplay} ${outputUnit}`} />
                     <MetaRow label="Avg price" value={`${avgP.toFixed(4)} USDC/${side.toUpperCase()}`} />
-                    {mode === "buy" && potentialProfit > 0 && (
+                    {mode === "buy" && tokensReceived > 0 && (
                       <MetaRow
                         label={`If ${side.toUpperCase()} wins`}
                         value={
                           <span className="text-yes">
-                            +${formatUsdc(potentialProfit)} ({profitPct.toFixed(0)}%)
+                            ${formatUsdc(tokensReceived)} (+{profitPct.toFixed(0)}%)
                           </span>
                         }
                       />

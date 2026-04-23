@@ -132,6 +132,143 @@ function findYFromX(xTarget: number, lEff: number): number {
   return lEff * (u * capitalPhi(u) + phi(u));
 }
 
+// ============================================================================
+// LP Simulation — Paper section 7 & 8
+// ============================================================================
+
+/** Expected daily LVR = V(P) / (2 * T_remaining_days). Paper section 8. */
+export function expectedDailyLvr(price: number, lEff: number, remainingSecs: number): number {
+  if (remainingSecs <= 0) return 0;
+  const v = poolValue(price, lEff);
+  return v / (2 * remainingSecs / 86400);
+}
+
+/** Terminal wealth expectation: E[W_T] = W_0 / 2. Paper section 8. */
+export function expectedTerminalWealth(deposited: number): number {
+  return deposited / 2;
+}
+
+/**
+ * Simulate LP deposit: compute shares received and resulting pool share.
+ * Returns { newShares, poolSharePct, newLEff, newPoolValue }.
+ */
+export function simulateLpDeposit(
+  amount: number,
+  price: number,
+  lEff: number,
+  totalShares: number,
+  remainingSecs: number,
+  lZero: number,
+): { newShares: number; poolSharePct: number; newPoolValue: number; estDailyYield: number } {
+  if (totalShares <= 0 || lEff <= 0) {
+    // First deposit: shares = amount, pool value = amount at P=0.5
+    return {
+      newShares: amount,
+      poolSharePct: 100,
+      newPoolValue: amount,
+      estDailyYield: remainingSecs > 0 ? amount / (2 * remainingSecs / 86400) : 0,
+    };
+  }
+
+  const currentValue = poolValue(price, lEff);
+  if (currentValue <= 0) return { newShares: 0, poolSharePct: 0, newPoolValue: 0, estDailyYield: 0 };
+
+  const newShares = amount * totalShares / currentValue;
+  const newTotal = totalShares + newShares;
+  const poolSharePct = (newShares / newTotal) * 100;
+
+  // New L_eff after deposit
+  const scale = newTotal / totalShares;
+  const newLZero = lZero * scale;
+  const newLEff = newLZero * Math.sqrt(Math.max(remainingSecs, 1));
+  const newPoolValue = poolValue(price, newLEff);
+
+  const estDailyYield = remainingSecs > 0
+    ? (newPoolValue * poolSharePct / 100) / (2 * remainingSecs / 86400)
+    : 0;
+
+  return { newShares, poolSharePct, newPoolValue, estDailyYield };
+}
+
+/**
+ * Compute current LP position P&L.
+ * Includes pool share value + pending residuals (unclaimed dC_t) + claimed tokens in wallet.
+ *
+ * Pending residuals = (cumPerShare - checkpoint) * shares (still in the contract)
+ * Claimed tokens = YES/NO already in the user's wallet
+ */
+export function lpPositionPnl(
+  shares: number,
+  totalShares: number,
+  deposited: number,
+  price: number,
+  lEff: number,
+  // Pending residuals from on-chain state
+  cumYesPerShare: number = 0,
+  cumNoPerShare: number = 0,
+  yesCheckpoint: number = 0,
+  noCheckpoint: number = 0,
+  // Already claimed tokens in wallet
+  walletYes: number = 0,
+  walletNo: number = 0,
+  // Current pool reserves (needed to project resolution payout)
+  reserveYes: number = 0,
+  reserveNo: number = 0,
+): LpPnlResult {
+  const empty: LpPnlResult = { currentValue: 0, pnl: 0, pnlPct: 0, poolSharePct: 0, poolValue: 0, residualsValue: 0, totalYes: 0, totalNo: 0, ifYesWins: 0, ifNoWins: 0 };
+  if (totalShares <= 0 || shares <= 0) return empty;
+
+  const frac = shares / totalShares;
+  const poolSharePct = frac * 100;
+  const totalPV = poolValue(price, lEff);
+  const myPoolValue = totalPV * frac;
+
+  // Pending (unclaimed) residuals from dC_t
+  const pendingYes = Math.max(0, (cumYesPerShare - yesCheckpoint) * shares);
+  const pendingNo = Math.max(0, (cumNoPerShare - noCheckpoint) * shares);
+
+  // Total tokens the LP has now (pending + wallet)
+  const tokensYes = pendingYes + walletYes;
+  const tokensNo = pendingNo + walletNo;
+
+  // At resolution: pool reserves also drain to LPs as residuals
+  // LP's share of the current reserves will ALSO be distributed
+  const futureYes = reserveYes * frac;
+  const futureNo = reserveNo * frac;
+
+  // Total YES/NO the LP will have at expiry (current + future from pool)
+  const totalYes = tokensYes + futureYes;
+  const totalNo = tokensNo + futureNo;
+
+  // Current value using market price (includes pool value which will become residuals)
+  const currentValue = myPoolValue + (tokensYes * price + tokensNo * (1 - price));
+  const pnl = currentValue - deposited;
+  const pnlPct = deposited > 0 ? (pnl / deposited) * 100 : 0;
+  const residualsValue = tokensYes * price + tokensNo * (1 - price);
+
+  // Resolution scenarios: all reserves distributed, each winning token = 1 USDC
+  const ifYesWins = totalYes;  // all YES tokens worth 1 USDC each
+  const ifNoWins = totalNo;    // all NO tokens worth 1 USDC each
+
+  return { currentValue, pnl, pnlPct, poolSharePct, poolValue: myPoolValue, residualsValue, totalYes, totalNo, ifYesWins, ifNoWins };
+}
+
+export interface LpPnlResult {
+  currentValue: number;
+  pnl: number;
+  pnlPct: number;
+  poolSharePct: number;
+  poolValue: number;
+  residualsValue: number;
+  totalYes: number;
+  totalNo: number;
+  ifYesWins: number;
+  ifNoWins: number;
+}
+
+/** Phi_inv exported for LP simulations */
+export { phiInv };
+
 /** Format time remaining */
 export function formatTimeRemaining(endTs: number): string {
   const now = Math.floor(Date.now() / 1000);

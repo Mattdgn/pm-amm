@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from "react";
 import { StatusBar } from "@/components/layout/status-bar";
-import { Sidebar, type SidebarFilter, type SidebarSort } from "@/components/layout/sidebar";
 import { MarketTable } from "@/components/market-table";
 import { MarketDetailPanel } from "@/components/market-detail-panel";
 import { useMarkets } from "@/hooks/use-markets";
@@ -13,23 +12,26 @@ import { PortfolioPanel } from "@/components/portfolio-panel";
 import { poolValue } from "@/lib/pm-math";
 import Link from "next/link";
 
+type Filter = "all" | "active" | "expiring" | "resolved" | "positions";
+type Sort = "tvl" | "expiry" | "newest";
+
 export default function Home() {
   const { data: markets, isLoading, error } = useMarkets();
   const { data: userPositions } = useUserPositions(markets);
   usePriceRecorder(markets);
   const priceHistories = usePriceHistories(markets);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<SidebarFilter>("all");
-  const [sort, setSort] = useState<SidebarSort>("tvl");
+  const [filter, setFilter] = useState<Filter>("all");
+  const [sort, setSort] = useState<Sort>("tvl");
 
   const filtered = useMemo(() => {
     if (!markets) return [];
     let result = [...markets];
+    const now = Math.floor(Date.now() / 1000);
 
-    if (filter === "active") result = result.filter((m) => !m.resolved);
+    if (filter === "active") result = result.filter((m) => !m.resolved && m.endTs > now);
     else if (filter === "resolved") result = result.filter((m) => m.resolved);
     else if (filter === "expiring") {
-      const now = Math.floor(Date.now() / 1000);
       result = result.filter((m) => !m.resolved && m.endTs - now > 0 && m.endTs - now < 86400);
     } else if (filter === "positions") {
       result = result.filter((m) => userPositions?.has(m.publicKey));
@@ -53,73 +55,101 @@ export default function Home() {
   const selectedMarket = markets?.find((m) => m.publicKey === selectedId) ?? null;
   const positionCount = userPositions?.size ?? 0;
 
+  const filters: { key: Filter; label: string; count?: number }[] = [
+    { key: "all", label: "All", count: markets?.length },
+    { key: "active", label: "Active", count: markets?.filter((m) => !m.resolved && m.endTs > Math.floor(Date.now() / 1000)).length },
+    { key: "expiring", label: "<24h" },
+    { key: "resolved", label: "Resolved", count: markets?.filter((m) => m.resolved).length },
+    { key: "positions", label: "My bets", count: positionCount || undefined },
+  ];
+
+  const sorts: { key: Sort; label: string }[] = [
+    { key: "tvl", label: "TVL" },
+    { key: "expiry", label: "Expiry" },
+    { key: "newest", label: "New" },
+  ];
+
   return (
     <>
       <StatusBar />
-      <div className="grid min-h-[calc(100vh-38px)] grid-cols-1 lg:grid-cols-[220px_1fr] xl:grid-cols-[220px_1fr_300px]">
-        <Sidebar
-          filter={filter}
-          sort={sort}
-          onFilterChange={setFilter}
-          onSortChange={setSort}
-          positionCount={positionCount}
-        />
-
+      <div className="grid min-h-[calc(100vh-38px)] grid-cols-1 xl:grid-cols-[1fr_300px]">
         <main className="flex flex-col min-w-0">
           {/* Toolbar */}
-          <div className="flex items-center justify-between px-[24px] py-[14px] border-b border-line font-mono text-[11px] text-muted tracking-[0.05em]">
+          <div className="flex items-center justify-between px-[24px] py-[12px] border-b border-line font-mono text-[11px] tracking-[0.05em] gap-[12px] flex-wrap">
+            {/* Filters */}
             <div className="flex gap-[4px]">
-              {(["all", "active", "expiring", "resolved"] as const).map((f) => (
+              {filters.map((f) => (
                 <button
-                  key={f}
-                  onClick={() => setFilter(f)}
+                  key={f.key}
+                  onClick={() => setFilter(f.key)}
                   className={[
-                    "px-[12px] py-[5px] rounded-sm border cursor-pointer",
+                    "px-[10px] py-[4px] rounded-sm border cursor-pointer",
                     "transition-all duration-[120ms] uppercase",
-                    filter === f
+                    filter === f.key
                       ? "text-text-hi border-line-2 bg-surface"
                       : "text-muted border-transparent hover:text-text-hi",
                   ].join(" ")}
                 >
-                  {f}
+                  {f.label}
+                  {f.count !== undefined && f.count > 0 && (
+                    <span className="ml-[4px] text-muted text-[10px]">{f.count}</span>
+                  )}
                 </button>
               ))}
             </div>
 
-            <div className="flex gap-[10px] items-center">
+            {/* Sort + Create */}
+            <div className="flex gap-[8px] items-center">
+              <div className="flex gap-[2px] border border-line rounded-sm">
+                {sorts.map((s) => (
+                  <button
+                    key={s.key}
+                    onClick={() => setSort(s.key)}
+                    className={[
+                      "px-[8px] py-[3px] text-[10px] cursor-pointer transition-all duration-[120ms]",
+                      sort === s.key ? "text-text-hi bg-surface" : "text-muted hover:text-text-hi",
+                    ].join(" ")}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+
               <Link href="/create">
-                <button className="px-[10px] py-[5px] bg-text-hi text-bg border border-text-hi rounded-sm font-mono text-[11px] tracking-[0.03em] font-medium cursor-pointer">
-                  + NEW MARKET
+                <button className="px-[10px] py-[4px] bg-text-hi text-bg border border-text-hi rounded-sm font-mono text-[11px] tracking-[0.03em] font-medium cursor-pointer">
+                  + NEW
                 </button>
               </Link>
             </div>
           </div>
 
+          {/* Loading skeleton */}
           {isLoading && (
             <div className="flex-1 min-w-0 flex flex-col">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="grid gap-[16px] px-[24px] py-[12px] border-b border-line grid-cols-[48px_1fr_80px_80px_80px_100px_90px_80px]">
-                  {Array.from({ length: 8 }).map((_, j) => (
+                <div key={i} className="grid gap-[12px] px-[24px] py-[12px] border-b border-line grid-cols-[1fr_60px_160px_80px_72px_60px]">
+                  {Array.from({ length: 6 }).map((_, j) => (
                     <div key={j} className="h-[14px] animate-pulse rounded-sm bg-surface border border-line" />
                   ))}
                 </div>
               ))}
             </div>
           )}
+
           {error && (
             <div className="p-[24px] text-no font-mono text-[12px]">
               Error: {(error as Error).message}
             </div>
           )}
+
           {filtered.length > 0 && (
             <MarketTable markets={filtered} selectedId={selectedId} onSelect={setSelectedId} priceHistories={priceHistories} />
           )}
+
           {!isLoading && !error && filtered.length === 0 && (
             <div className="flex-1 flex flex-col items-center justify-center gap-[12px] p-[48px]">
               <div className="text-[11px] text-muted font-mono uppercase tracking-[0.05em]">
-                {filter === "positions"
-                  ? "No positions found"
-                  : "No markets yet"}
+                {filter === "positions" ? "No positions found" : "No markets yet"}
               </div>
               <Link href="/create">
                 <button className="px-[14px] py-[6px] bg-text-hi text-bg border border-text-hi rounded-sm font-mono text-[11px] tracking-[0.03em] font-medium cursor-pointer">

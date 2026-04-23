@@ -22,6 +22,8 @@ export interface MarketData {
   winningSide: number;
   price: number;
   lEff: number;
+  cumYesPerShare: number;
+  cumNoPerShare: number;
 }
 
 export function useMarkets() {
@@ -40,16 +42,41 @@ export function useMarkets() {
       return accounts.map((acc: any) => {
         const m = acc.account;
         const now = Math.floor(Date.now() / 1000);
+        const isExpired = now >= m.endTs.toNumber();
         const remaining = Math.max(m.endTs.toNumber() - now, 1);
         const lZero = i80f48ToNumber(m.lZero);
         const lEff = lZero * Math.sqrt(remaining);
         const x = i80f48ToNumber(m.reserveYes);
         const y = i80f48ToNumber(m.reserveNo);
-        const price = m.resolved
-          ? (m.winningSide === 1 ? 1 : m.winningSide === 2 ? 0 : 0.5)
-          : lEff > 0 && (x > 0 || y > 0)
+
+        let price: number;
+        if (m.resolved) {
+          price = m.winningSide === 1 ? 1 : m.winningSide === 2 ? 0 : 0.5;
+        } else if (isExpired || (x === 0 && y === 0)) {
+          // Expired or reserves drained: use last accrual price from reserves ratio
+          // Compute price using full duration L_eff to get the "last real price"
+          const fullRemaining = Math.max(m.endTs.toNumber() - m.lastAccrualTs.toNumber(), 1);
+          const fullLEff = lZero * Math.sqrt(fullRemaining);
+          const xLast = i80f48ToNumber(m.reserveYes);
+          const yLast = i80f48ToNumber(m.reserveNo);
+          if (fullLEff > 0 && (xLast > 0 || yLast > 0)) {
+            price = Math.max(0.001, Math.min(0.999, priceFromReserves(xLast, yLast, fullLEff)));
+          } else {
+            // Reserves are 0 — use cumulative residuals ratio as proxy
+            const cumYes = i80f48ToNumber(m.cumYesPerShare);
+            const cumNo = i80f48ToNumber(m.cumNoPerShare);
+            if (cumYes + cumNo > 0) {
+              // More NO released → price was high (YES), more YES released → price was low
+              price = cumNo / (cumYes + cumNo);
+            } else {
+              price = 0.5;
+            }
+          }
+        } else {
+          price = lEff > 0 && (x > 0 || y > 0)
             ? priceFromReserves(x, y, lEff)
             : 0.5;
+        }
 
         // Decode name: [u8; 64] → trim trailing zeros → UTF-8 string
         const nameBytes: number[] = m.name ?? [];
@@ -73,6 +100,8 @@ export function useMarkets() {
           winningSide: m.winningSide,
           price,
           lEff,
+          cumYesPerShare: i80f48ToNumber(m.cumYesPerShare),
+          cumNoPerShare: i80f48ToNumber(m.cumNoPerShare),
         };
       });
     },

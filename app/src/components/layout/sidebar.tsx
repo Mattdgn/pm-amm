@@ -7,16 +7,15 @@ interface SidebarItemProps {
   count?: number;
   active?: boolean;
   onClick?: () => void;
-  swatch?: string;
 }
 
-function SidebarItem({ label, count, active, onClick, swatch }: SidebarItemProps) {
+function SidebarItem({ label, count, active, onClick }: SidebarItemProps) {
   return (
     <div
       onClick={onClick}
       className={[
         "flex items-center justify-between",
-        "px-[20px] py-[7px]",
+        "px-[16px] py-[6px]",
         "text-text-dim cursor-pointer select-none",
         "border-l-2",
         "transition-all duration-[120ms]",
@@ -25,15 +24,7 @@ function SidebarItem({ label, count, active, onClick, swatch }: SidebarItemProps
           : "border-l-transparent hover:text-text-hi hover:bg-surface",
       ].join(" ")}
     >
-      <span className="flex items-center gap-[8px]">
-        {swatch && (
-          <span
-            className="inline-block w-[8px] h-[8px] rounded-[1px]"
-            style={{ background: swatch }}
-          />
-        )}
-        {label}
-      </span>
+      <span>{label}</span>
       {count !== undefined && (
         <span className="text-muted text-[11px]">{count}</span>
       )}
@@ -43,7 +34,7 @@ function SidebarItem({ label, count, active, onClick, swatch }: SidebarItemProps
 
 function SidebarTitle({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-[10px] text-muted uppercase tracking-[0.08em] px-[20px] mt-[16px] mb-[8px] first:mt-0">
+    <div className="text-[10px] text-muted uppercase tracking-[0.08em] px-[16px] mt-[14px] mb-[6px] first:mt-0">
       {children}
     </div>
   );
@@ -58,9 +49,11 @@ interface SidebarProps {
   onFilterChange: (f: SidebarFilter) => void;
   onSortChange: (s: SidebarSort) => void;
   positionCount?: number;
+  collapsed: boolean;
+  onToggle: () => void;
 }
 
-export function Sidebar({ filter, sort, onFilterChange, onSortChange, positionCount = 0 }: SidebarProps) {
+export function Sidebar({ filter, sort, onFilterChange, onSortChange, positionCount = 0, collapsed, onToggle }: SidebarProps) {
   const { data: markets } = useMarkets();
 
   const total = markets?.length ?? 0;
@@ -73,20 +66,33 @@ export function Sidebar({ filter, sort, onFilterChange, onSortChange, positionCo
   const resolved = markets?.filter((m) => m.resolved).length ?? 0;
 
   return (
-    <aside className="border-r border-line py-[20px] font-mono text-[12px] hidden lg:block">
-      <SidebarTitle>View</SidebarTitle>
-      <SidebarItem label="All markets" count={total} active={filter === "all"} onClick={() => onFilterChange("all")} />
-      <SidebarItem label="My positions" count={positionCount || undefined} active={filter === "positions"} onClick={() => onFilterChange("positions")} />
+    <aside className={`border-r border-line py-[16px] font-mono text-[12px] hidden lg:block transition-all duration-[200ms] ${
+      collapsed ? "w-[40px] overflow-hidden" : "w-[200px]"
+    }`}>
+      <button
+        onClick={onToggle}
+        className="w-full px-[12px] py-[4px] text-[10px] text-muted hover:text-text-hi transition-all duration-[120ms] text-left cursor-pointer"
+      >
+        {collapsed ? ">" : "< Hide"}
+      </button>
 
-      <SidebarTitle>Status</SidebarTitle>
-      <SidebarItem label="Active" count={active} active={filter === "active"} onClick={() => onFilterChange("active")} />
-      <SidebarItem label="Expiring <24h" count={expiring} active={filter === "expiring"} onClick={() => onFilterChange("expiring")} />
-      <SidebarItem label="Resolved" count={resolved} active={filter === "resolved"} onClick={() => onFilterChange("resolved")} />
+      {!collapsed && (
+        <>
+          <SidebarTitle>View</SidebarTitle>
+          <SidebarItem label="All markets" count={total} active={filter === "all"} onClick={() => onFilterChange("all")} />
+          <SidebarItem label="My positions" count={positionCount || undefined} active={filter === "positions"} onClick={() => onFilterChange("positions")} />
 
-      <SidebarTitle>Sort</SidebarTitle>
-      <SidebarItem label="TVL · desc" active={sort === "tvl"} onClick={() => onSortChange("tvl")} />
-      <SidebarItem label="Expiry · soonest" active={sort === "expiry"} onClick={() => onSortChange("expiry")} />
-      <SidebarItem label="Newest" active={sort === "newest"} onClick={() => onSortChange("newest")} />
+          <SidebarTitle>Status</SidebarTitle>
+          <SidebarItem label="Active" count={active} active={filter === "active"} onClick={() => onFilterChange("active")} />
+          <SidebarItem label="Expiring <24h" count={expiring} active={filter === "expiring"} onClick={() => onFilterChange("expiring")} />
+          <SidebarItem label="Resolved" count={resolved} active={filter === "resolved"} onClick={() => onFilterChange("resolved")} />
+
+          <SidebarTitle>Sort</SidebarTitle>
+          <SidebarItem label="TVL · desc" active={sort === "tvl"} onClick={() => onSortChange("tvl")} />
+          <SidebarItem label="Expiry · soonest" active={sort === "expiry"} onClick={() => onSortChange("expiry")} />
+          <SidebarItem label="Newest" active={sort === "newest"} onClick={() => onSortChange("newest")} />
+        </>
+      )}
     </aside>
   );
 }

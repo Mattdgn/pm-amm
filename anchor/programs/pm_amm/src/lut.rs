@@ -4152,7 +4152,7 @@ pub fn cdf_lut(z: I80F48) -> I80F48 {
 
     let f0 = CDF_LUT[i];
     let f1 = CDF_LUT[i + 1];
-    let d0 = PHI_LUT[i] * LUT_STEP;  // Phi'(z) * h = phi(z) * h
+    let d0 = PHI_LUT[i] * LUT_STEP; // Phi'(z) * h = phi(z) * h
     let d1 = PHI_LUT[i + 1] * LUT_STEP;
 
     I80F48::from_num(hermite(f0, f1, d0, d1, t))

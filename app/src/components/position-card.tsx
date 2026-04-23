@@ -178,7 +178,27 @@ export function PositionCard({
                 <>
                   {yesAmount > 0 && <MetaRow label="YES → USDC" value={formatUsdc(posValue.yesValueUsdc)} />}
                   {noAmount > 0 && <MetaRow label="NO → USDC" value={formatUsdc(posValue.noValueUsdc)} />}
-                  <MetaRow label="Total value" value={`${formatUsdc(posValue.totalUsdc)} USDC`} last />
+                  <MetaRow label="Sell now" value={`${formatUsdc(posValue.totalUsdc)} USDC`} />
+                  {yesAmount > 0 && (
+                    <MetaRow label="If YES wins" value={
+                      <span className="text-yes">+{formatUsdc(yesAmount)} USDC</span>
+                    } />
+                  )}
+                  {noAmount > 0 && (
+                    <MetaRow label="If NO wins" value={
+                      <span className="text-no">+{formatUsdc(noAmount)} USDC</span>
+                    } last />
+                  )}
+                  {yesAmount > 0 && noAmount === 0 && (
+                    <MetaRow label="If NO wins" value={
+                      <span className="text-no">$0.00</span>
+                    } last />
+                  )}
+                  {noAmount > 0 && yesAmount === 0 && (
+                    <MetaRow label="If YES wins" value={
+                      <span className="text-no">$0.00</span>
+                    } last />
+                  )}
                 </>
               ) : null}
             </div>
