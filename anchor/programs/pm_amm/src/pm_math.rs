@@ -415,11 +415,7 @@ fn find_x_from_y(y_target: I80F48, l_eff: I80F48) -> Result<I80F48> {
     for _ in 0..20 {
         let mid = (lo + hi) / TWO;
         let (_, y_mid) = xy_from_u_fast(mid, l_eff);
-        if y_mid < y_target {
-            lo = mid;
-        } else {
-            hi = mid;
-        }
+        if y_mid < y_target { lo = mid; } else { hi = mid; }
     }
     let u_best = (lo + hi) / TWO;
     let (x, _) = xy_from_u_fast(u_best, l_eff);
@@ -434,12 +430,9 @@ fn find_y_from_x(x_target: I80F48, l_eff: I80F48) -> Result<I80F48> {
     for _ in 0..20 {
         let mid = (lo + hi) / TWO;
         let (x_mid, _) = xy_from_u_fast(mid, l_eff);
-        if x_mid > x_target {
-            lo = mid;
-        } else {
-            hi = mid;
-        }
+        if x_mid > x_target { lo = mid; } else { hi = mid; }
     }
+    let u_best = (lo + hi) / TWO;
     let u_best = (lo + hi) / TWO;
     let (_, y) = xy_from_u_fast(u_best, l_eff);
     Ok(y)
