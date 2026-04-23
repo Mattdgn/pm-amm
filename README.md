@@ -134,13 +134,19 @@ await program.methods
 
 ---
 
+## IDL
+
+The Anchor IDL is available at [`idl/pm_amm.json`](idl/pm_amm.json) for integrators building on top of pm-AMM.
+
+---
+
 ## Test Suite
 
-**197 tests total:**
+**200 tests total:**
 
 | Category | Count | Coverage |
 |---|---|---|
-| Rust unit tests (pm_math, accrual, state) | 49 | All math functions, Q64.64 roundtrips, accrual properties |
+| Rust unit tests (pm_math, accrual, state) | 52 | All math functions, Q64.64 roundtrips, accrual properties, solver precision |
 | TS integration tests | 18 | Full lifecycle: init -> deposit -> swap -> claim -> resolve |
 | Python property tests | 18 | Paradigm properties A/B/C, robustness D/E/F |
 | Python oracle tests | 112 | Cross-validation against scipy |
@@ -152,7 +158,6 @@ await program.methods
 - **Oracle**: admin-only resolution (no oracle integration)
 - **Binary only**: YES/NO outcomes, no multi-outcome
 - **0% fees**: no trading fees (pure LVR model)
-- **Compute**: swap uses ~800k CU (LUT optimization, within 1.4M limit)
 
 ## Roadmap
 
@@ -166,8 +171,8 @@ await program.methods
 ## Prerequisites
 
 - [Rust](https://rustup.rs/) (stable)
-- [Solana CLI](https://docs.solanalabs.com/cli/install) (v2+)
-- [Anchor CLI](https://www.anchor-lang.com/docs/installation) (v0.31+)
+- [Solana CLI](https://docs.solanalabs.com/cli/install) (v3+)
+- [Anchor CLI](https://www.anchor-lang.com/docs/installation) (v1.0+)
 - [Node.js](https://nodejs.org/) (v20+)
 - [pnpm](https://pnpm.io/) (v9+)
 - Python 3.10+ (for oracle tests only)
@@ -181,7 +186,7 @@ pnpm install
 # Build the program
 pnpm run build
 
-# Run Rust unit tests (49 tests)
+# Run Rust unit tests (52 tests)
 cd anchor && cargo test --package pm_amm
 
 # Run integration tests (18 tests, requires local validator)
@@ -210,13 +215,7 @@ MINT_AUTHORITY_KEY=         # Base64-encoded keypair for mock USDC faucet
 
 ## Contributing
 
-Contributions are welcome. Please open an issue first to discuss what you'd like to change.
-
-1. Fork the repo
-2. Create your feature branch (`git checkout -b feat/my-feature`)
-3. Ensure `cargo test` and `pnpm tsc --noEmit` pass
-4. Commit and push
-5. Open a Pull Request
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, code standards, and PR guidelines.
 
 ## License
 
