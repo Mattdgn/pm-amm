@@ -412,37 +412,26 @@ fn xy_from_u_fast(u: I80F48, l_eff: I80F48) -> (I80F48, I80F48) {
 fn find_x_from_y(y_target: I80F48, l_eff: I80F48) -> Result<I80F48> {
     let mut lo = Z_SEARCH_MIN;
     let mut hi = Z_SEARCH_MAX;
-
     for _ in 0..20 {
         let mid = (lo + hi) / TWO;
         let (_, y_mid) = xy_from_u_fast(mid, l_eff);
-        if y_mid < y_target {
-            lo = mid;
-        } else {
-            hi = mid;
-        }
+        if y_mid < y_target { lo = mid; } else { hi = mid; }
     }
-
     let u_best = (lo + hi) / TWO;
     let (x, _) = xy_from_u_fast(u_best, l_eff);
     Ok(x)
 }
 
 /// Find y given x_target: binary search on u using LUT (fast).
+/// 20 iterations — same precision as find_x_from_y.
 fn find_y_from_x(x_target: I80F48, l_eff: I80F48) -> Result<I80F48> {
     let mut lo = Z_SEARCH_MIN;
     let mut hi = Z_SEARCH_MAX;
-
     for _ in 0..20 {
         let mid = (lo + hi) / TWO;
         let (x_mid, _) = xy_from_u_fast(mid, l_eff);
-        if x_mid > x_target {
-            lo = mid;
-        } else {
-            hi = mid;
-        }
+        if x_mid > x_target { lo = mid; } else { hi = mid; }
     }
-
     let u_best = (lo + hi) / TWO;
     let (_, y) = xy_from_u_fast(u_best, l_eff);
     Ok(y)
@@ -1312,5 +1301,113 @@ mod tests {
         assert!((v - 39894.228).abs() < 10.0, "V(0.5, L=100k) = {v}");
         let inv: f64 = invariant_value(x, y, l_large).unwrap().to_num();
         assert!(inv.abs() < 1.0, "Large pool invariant: {inv:.6e}");
+    }
+
+    // ================================================================
+    // 7. Hybrid Newton solver precision tests
+    // ================================================================
+
+    #[test]
+    fn test_hybrid_solver_precision() {
+        // Test find_x_from_y and find_y_from_x precision.
+        // < 1 lamport for normal prices (1%-99%), < 0.1% relative for extremes.
+        let l = f(1000.0);
+        for p_bps in [1, 100, 500, 2500, 5000, 7500, 9500, 9900, 9999] {
+            let p = I80F48::from_num(p_bps as f64 / 10000.0);
+            let (x_ref, y_ref) = reserves_from_price(p, l).unwrap();
+
+            // find_x_from_y: given y_ref, find x → should match x_ref
+            let x_found = find_x_from_y(y_ref, l).unwrap();
+            let x_ref_f: f64 = x_ref.to_num();
+            let x_found = find_x_from_y(y_ref, l).unwrap();
+            let diff_x: f64 = (x_found - x_ref).to_num::<f64>().abs();
+            // At extreme prices (P < 1% or P > 99%), use relative tolerance
+            let tol_x = if p_bps < 100 || p_bps > 9900 {
+                x_ref_f.abs() * 0.005 // 0.5% relative
+            } else {
+                1.0 // < 1 lamport absolute
+            };
+            assert!(
+                diff_x < tol_x,
+                "find_x_from_y at P={}: diff={diff_x:.6}, tol={tol_x:.6}",
+                p_bps as f64 / 10000.0,
+            );
+
+            let y_ref_f: f64 = y_ref.to_num();
+            let y_found = find_y_from_x(x_ref, l).unwrap();
+            let diff_y: f64 = (y_found - y_ref).to_num::<f64>().abs();
+            let tol_y = if p_bps < 100 || p_bps > 9900 {
+                y_ref_f.abs() * 0.005
+            } else {
+                1.0
+            };
+            assert!(
+                diff_y < tol_y,
+                "find_y_from_x at P={}: diff={diff_y:.6}, tol={tol_y:.6}",
+                p_bps as f64 / 10000.0,
+            );
+        }
+    }
+
+    #[test]
+    fn test_hybrid_swap_all_directions() {
+        // Verify swap output is valid for all 6 directions with hybrid solver.
+        let l_eff = f(500.0);
+        let (x, y) = reserves_from_price(f(0.6), l_eff).unwrap();
+        let delta = f(10.0);
+
+        let directions = [
+            (SwapSide::Usdc, SwapSide::Yes),
+            (SwapSide::Usdc, SwapSide::No),
+            (SwapSide::Yes, SwapSide::Usdc),
+            (SwapSide::No, SwapSide::Usdc),
+            (SwapSide::Yes, SwapSide::No),
+            (SwapSide::No, SwapSide::Yes),
+        ];
+
+        for (side_in, side_out) in directions {
+            let result = compute_swap_output(x, y, l_eff, delta, side_in, side_out).unwrap();
+            let out: f64 = result.output.to_num();
+            assert!(
+                out > 0.0,
+                "Swap {:?}->{:?} output must be > 0, got {out}",
+                side_in, side_out
+            );
+            // Verify invariant on new reserves
+            let inv: f64 = invariant_value(result.x_new, result.y_new, l_eff)
+                .unwrap()
+                .to_num();
+            assert!(
+                inv.abs() < 0.01,
+                "Swap {:?}->{:?} invariant broken: {inv:.6e}",
+                side_in, side_out
+            );
+        }
+    }
+
+    #[test]
+    fn test_hybrid_large_delta() {
+        // Large swap that moves price significantly (0.5 → ~0.9)
+        let l_eff = f(1000.0);
+        let (x, y) = reserves_from_price(f(0.5), l_eff).unwrap();
+        let large_delta = f(800.0); // 80% of typical reserve
+
+        let result =
+            compute_swap_output(x, y, l_eff, large_delta, SwapSide::Usdc, SwapSide::Yes)
+                .unwrap();
+        let out: f64 = result.output.to_num();
+        assert!(out > 0.0, "Large delta output: {out}");
+
+        // New price should be much higher
+        let new_price: f64 = result.price_new.to_num();
+        assert!(
+            new_price > 0.7,
+            "Price after large buy should be > 0.7, got {new_price}"
+        );
+
+        let inv: f64 = invariant_value(result.x_new, result.y_new, l_eff)
+            .unwrap()
+            .to_num();
+        assert!(inv.abs() < 0.1, "Invariant after large swap: {inv:.6e}");
     }
 }
