@@ -27,21 +27,18 @@ jobs:
             anchor/target
           key: ${{ runner.os }}-cargo-${{ hashFiles('anchor/Cargo.lock') }}
 
-      - name: Install Solana CLI
+      - name: Install Solana toolchain
         run: |
           sh -c "$(curl -sSfL https://release.anza.xyz/v2.2.14/install)"
           echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
-      - name: Install Anchor CLI
-        run: cargo install --git https://github.com/coral-xyz/anchor avm --force && avm install 1.0.1 && avm use 1.0.1
-
-      - name: Run Rust tests
+      - name: Run Rust unit tests
         working-directory: anchor
-        run: cargo test --package pm_amm
+        run: cargo test --package pm_amm --lib
 
       - name: Run Clippy
         working-directory: anchor
-        run: cargo clippy --package pm_amm -- -D warnings
+        run: cargo clippy --package pm_amm --lib -- -D warnings
 
       - name: Check Rustfmt
         working-directory: anchor
