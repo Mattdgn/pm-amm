@@ -397,44 +397,113 @@ pub enum SwapSide {
     Usdc,
 }
 
-/// Compute (x, y) from u = Phi_inv(P) and L_eff using LUT (fast, for binary search).
+/// Q48 fixed-point multiply: (a * b) >> 48, avoiding i128 overflow.
+/// Splits into 64-bit halves for safe widening multiplication.
+#[inline(always)]
+fn mul_q48(a: i128, b: i128) -> i128 {
+    // Split into high (signed) and low (unsigned) 64-bit parts
+    let a_hi = a >> 48;
+    let a_lo = (a & 0xFFFF_FFFF_FFFF) as u64;
+    let b_hi = b >> 48;
+    let b_lo = (b & 0xFFFF_FFFF_FFFF) as u64;
+
+    // Four products (cross-multiply)
+    let ll = (a_lo as i128) * (b_lo as i128); // u64 * u64 fits i128
+    let lh = (a_lo as i128) * b_hi;
+    let hl = a_hi * (b_lo as i128);
+    let hh = a_hi * b_hi;
+
+    // Combine: result = (ll >> 48) + lh + hl + (hh << 48)
+    (ll >> 48) + lh + hl + (hh << 48)
+}
+
+/// Compute (x, y) from u and L_eff using LUT + raw i128 arithmetic.
 /// x = L*(u*Phi(u) + phi(u) - u), y = L*(u*Phi(u) + phi(u))
 #[inline(always)]
 fn xy_from_u_fast(u: I80F48, l_eff: I80F48) -> (I80F48, I80F48) {
     let phi_u = lut::phi_lut(u);
     let cdf_u = lut::cdf_lut(u);
-    let base = u * cdf_u + phi_u;
-    (l_eff * (base - u), l_eff * base)
+
+    let ub = u.to_bits();
+    let lb = l_eff.to_bits();
+    let phi_b = phi_u.to_bits();
+    let cdf_b = cdf_u.to_bits();
+
+    // base = u * Phi(u) + phi(u)
+    let base = mul_q48(ub, cdf_b) + phi_b;
+    // x = L * (base - u), y = L * base
+    let x = mul_q48(lb, base - ub);
+    let y = mul_q48(lb, base);
+
+    (I80F48::from_bits(x), I80F48::from_bits(y))
 }
 
-/// Find x given y_target: binary search on u using LUT (fast).
-/// 20 iterations → precision ~12/2^20 ≈ 1e-5 (sufficient for 6 decimals).
+/// Newton-safe threshold: |u| < 3.0 → Phi(u) > 0.13%.
+/// With cubic Hermite LUT (~1e-11 error), Newton converges safely here.
+const NEWTON_SAFE_BOUND: I80F48 = I80F48::lit("3.0");
+
+/// Find x given y_target: adaptive solver.
+/// Center (|u| < 3, ~99.7% of prices): 6 BS + 3 Newton = 9 iterations.
+/// Extremes: 20 BS iterations (full precision fallback).
+/// dy/du = L_eff * Phi(u).
 fn find_x_from_y(y_target: I80F48, l_eff: I80F48) -> Result<I80F48> {
     let mut lo = Z_SEARCH_MIN;
     let mut hi = Z_SEARCH_MAX;
-    for _ in 0..20 {
+    for _ in 0..6 {
         let mid = (lo + hi) / TWO;
         let (_, y_mid) = xy_from_u_fast(mid, l_eff);
         if y_mid < y_target { lo = mid; } else { hi = mid; }
     }
-    let u_best = (lo + hi) / TWO;
-    let (x, _) = xy_from_u_fast(u_best, l_eff);
+    let mut u = (lo + hi) / TWO;
+    if u > ZERO - NEWTON_SAFE_BOUND && u < NEWTON_SAFE_BOUND {
+        // Newton: f(u) = y(u) - y_target, f'(u) = L_eff * Phi(u)
+        for _ in 0..3 {
+            let (_, y_u) = xy_from_u_fast(u, l_eff);
+            let f_prime = l_eff * lut::cdf_lut(u);
+            u = u - (y_u - y_target) / f_prime;
+            u = u.max(Z_SEARCH_MIN).min(Z_SEARCH_MAX);
+        }
+    } else {
+        for _ in 0..14 {
+            let mid = (lo + hi) / TWO;
+            let (_, y_mid) = xy_from_u_fast(mid, l_eff);
+            if y_mid < y_target { lo = mid; } else { hi = mid; }
+        }
+        u = (lo + hi) / TWO;
+    }
+    let (x, _) = xy_from_u_fast(u, l_eff);
     Ok(x)
 }
 
-/// Find y given x_target: binary search on u using LUT (fast).
-/// 20 iterations — same precision as find_x_from_y.
+/// Find y given x_target: adaptive solver.
+/// Center: 6 BS + 3 Newton = 9 iterations. Extremes: 20 BS.
+/// dx/du = L_eff * (Phi(u) - 1).
 fn find_y_from_x(x_target: I80F48, l_eff: I80F48) -> Result<I80F48> {
     let mut lo = Z_SEARCH_MIN;
     let mut hi = Z_SEARCH_MAX;
-    for _ in 0..20 {
+    for _ in 0..6 {
         let mid = (lo + hi) / TWO;
         let (x_mid, _) = xy_from_u_fast(mid, l_eff);
         if x_mid > x_target { lo = mid; } else { hi = mid; }
     }
-    let u_best = (lo + hi) / TWO;
-    let u_best = (lo + hi) / TWO;
-    let (_, y) = xy_from_u_fast(u_best, l_eff);
+    let mut u = (lo + hi) / TWO;
+    if u > ZERO - NEWTON_SAFE_BOUND && u < NEWTON_SAFE_BOUND {
+        // Newton: f(u) = x(u) - x_target, f'(u) = L_eff * (Phi(u) - 1)
+        for _ in 0..3 {
+            let (x_u, _) = xy_from_u_fast(u, l_eff);
+            let f_prime = l_eff * (lut::cdf_lut(u) - ONE);
+            u = u - (x_u - x_target) / f_prime;
+            u = u.max(Z_SEARCH_MIN).min(Z_SEARCH_MAX);
+        }
+    } else {
+        for _ in 0..14 {
+            let mid = (lo + hi) / TWO;
+            let (x_mid, _) = xy_from_u_fast(mid, l_eff);
+            if x_mid > x_target { lo = mid; } else { hi = mid; }
+        }
+        u = (lo + hi) / TWO;
+    }
+    let (_, y) = xy_from_u_fast(u, l_eff);
     Ok(y)
 }
 

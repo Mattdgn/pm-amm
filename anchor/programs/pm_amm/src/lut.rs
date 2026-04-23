@@ -4114,13 +4114,29 @@ pub const CDF_LUT: [f64; 2049] = [
     9.999999990134123e-01,
 ];
 
-/// Interpolated lookup for phi(z) using precomputed 2048-point table.
+/// Cubic Hermite lookup for phi(z). Uses phi' = -z*phi as derivative.
+/// Interpolation error ~1e-11 (vs ~1e-6 for linear).
 #[inline(always)]
 pub fn phi_lut(z: I80F48) -> I80F48 {
-    interp(&PHI_LUT, z)
+    let z_f: f64 = z.to_num();
+    let z_c = z_f.clamp(LUT_Z_MIN, -LUT_Z_MIN);
+    let idx_f = (z_c - LUT_Z_MIN) * LUT_INV_STEP;
+    let i = (idx_f as usize).min(LUT_N - 1);
+    let t = idx_f - i as f64;
+
+    let z0 = LUT_Z_MIN + i as f64 * LUT_STEP;
+    let z1 = z0 + LUT_STEP;
+
+    let f0 = PHI_LUT[i];
+    let f1 = PHI_LUT[i + 1];
+    let d0 = -z0 * f0 * LUT_STEP; // phi'(z) * h = -z * phi(z) * h
+    let d1 = -z1 * f1 * LUT_STEP;
+
+    I80F48::from_num(hermite(f0, f1, d0, d1, t).max(0.0))
 }
 
-/// Interpolated lookup for Phi(z) using precomputed 2048-point table.
+/// Cubic Hermite lookup for Phi(z). Uses Phi' = phi as derivative.
+/// Interpolation error ~1e-11 (vs ~1e-6 for linear).
 #[inline(always)]
 pub fn cdf_lut(z: I80F48) -> I80F48 {
     let z_f: f64 = z.to_num();
@@ -4130,18 +4146,26 @@ pub fn cdf_lut(z: I80F48) -> I80F48 {
     if z_f >= -LUT_Z_MIN {
         return I80F48::ONE;
     }
-    interp(&CDF_LUT, z)
+    let idx_f = (z_f - LUT_Z_MIN) * LUT_INV_STEP;
+    let i = (idx_f as usize).min(LUT_N - 1);
+    let t = idx_f - i as f64;
+
+    let f0 = CDF_LUT[i];
+    let f1 = CDF_LUT[i + 1];
+    let d0 = PHI_LUT[i] * LUT_STEP;  // Phi'(z) * h = phi(z) * h
+    let d1 = PHI_LUT[i + 1] * LUT_STEP;
+
+    I80F48::from_num(hermite(f0, f1, d0, d1, t))
 }
 
+/// Cubic Hermite basis interpolation.
+/// h00(t)*f0 + h10(t)*d0 + h01(t)*f1 + h11(t)*d1
 #[inline(always)]
-fn interp(table: &[f64; 2049], z: I80F48) -> I80F48 {
-    let z_f: f64 = z.to_num();
-    let idx_f = (z_f - LUT_Z_MIN) * LUT_INV_STEP;
-    let idx = idx_f as usize;
-    if idx >= LUT_N {
-        return I80F48::from_num(table[LUT_N]);
-    }
-    let frac = idx_f - idx as f64;
-    let val = table[idx] + frac * (table[idx + 1] - table[idx]);
-    I80F48::from_num(val)
+fn hermite(f0: f64, f1: f64, d0: f64, d1: f64, t: f64) -> f64 {
+    let t2 = t * t;
+    let t3 = t2 * t;
+    (2.0 * t3 - 3.0 * t2 + 1.0) * f0
+        + (t3 - 2.0 * t2 + t) * d0
+        + (-2.0 * t3 + 3.0 * t2) * f1
+        + (t3 - t2) * d1
 }
