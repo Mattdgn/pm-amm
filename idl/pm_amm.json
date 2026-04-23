@@ -1,5 +1,8 @@
+   Compiling pm_amm v0.1.0 (/Users/matt/Documents/dev/pm-amm/anchor/programs/pm_amm)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.80s
+     Running unittests src/lib.rs (/Users/matt/Documents/dev/pm-amm/anchor/target/debug/deps/pm_amm-b9f950011a4a5620)
 {
-  "address": "Nyt82Pzqk3hvRJs8AHq4udenFQLAM9z99JSGh1aqhLA",
+  "address": "8V872cTKfH1gC5zBvQhrQN2DXSmRNokPPjPsBE46MZNj",
   "metadata": {
     "name": "pm_amm",
     "version": "0.1.0",
