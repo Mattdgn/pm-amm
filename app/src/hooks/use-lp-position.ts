@@ -36,7 +36,7 @@ export function useLpPosition(marketPda: string | undefined) {
         const lp = await (program.account as any).lpPosition.fetch(lpPda);
         return {
           shares: i80f48ToNumber(lp.shares),
-          collateralDeposited: lp.collateralDeposited.toNumber(),
+          collateralDeposited: Number(BigInt(lp.collateralDeposited.toString())),
           yesCheckpoint: i80f48ToNumber(lp.yesPerShareCheckpoint),
           noCheckpoint: i80f48ToNumber(lp.noPerShareCheckpoint),
           pda: lpPda.toBase58(),
