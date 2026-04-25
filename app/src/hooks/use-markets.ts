@@ -7,6 +7,9 @@ import idl from "@/lib/pm_amm_idl.json";
 import { PROGRAM_ID } from "@/lib/constants";
 import { priceFromReserves, i80f48ToNumber } from "@/lib/pm-math";
 
+const bnToNum = (bn: { toString(): string }): number =>
+  Number(BigInt(bn.toString()));
+
 export interface MarketData {
   publicKey: string;
   marketId: number;
@@ -42,8 +45,9 @@ export function useMarkets() {
       return accounts.map((acc: any) => {
         const m = acc.account;
         const now = Math.floor(Date.now() / 1000);
-        const isExpired = now >= m.endTs.toNumber();
-        const remaining = Math.max(m.endTs.toNumber() - now, 1);
+        const endTs = bnToNum(m.endTs);
+        const isExpired = now >= endTs;
+        const remaining = Math.max(endTs - now, 1);
         const lZero = i80f48ToNumber(m.lZero);
         const lEff = lZero * Math.sqrt(remaining);
         const x = i80f48ToNumber(m.reserveYes);
@@ -55,7 +59,7 @@ export function useMarkets() {
         } else if (isExpired || (x === 0 && y === 0)) {
           // Expired or reserves drained: use last accrual price from reserves ratio
           // Compute price using full duration L_eff to get the "last real price"
-          const fullRemaining = Math.max(m.endTs.toNumber() - m.lastAccrualTs.toNumber(), 1);
+          const fullRemaining = Math.max(endTs - bnToNum(m.lastAccrualTs), 1);
           const fullLEff = lZero * Math.sqrt(fullRemaining);
           const xLast = i80f48ToNumber(m.reserveYes);
           const yLast = i80f48ToNumber(m.reserveNo);
@@ -85,13 +89,14 @@ export function useMarkets() {
           new Uint8Array(end >= 0 ? nameBytes.slice(0, end) : nameBytes)
         );
 
+        const marketId = bnToNum(m.marketId);
         return {
           publicKey: acc.publicKey.toBase58(),
-          marketId: m.marketId.toNumber(),
+          marketId,
           authority: m.authority.toBase58(),
-          name: nameStr || `Market #${m.marketId.toNumber()}`,
-          startTs: m.startTs.toNumber(),
-          endTs: m.endTs.toNumber(),
+          name: nameStr || `Market #${marketId}`,
+          startTs: bnToNum(m.startTs),
+          endTs,
           lZero,
           reserveYes: x,
           reserveNo: y,
