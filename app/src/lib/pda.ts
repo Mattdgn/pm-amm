@@ -16,10 +16,7 @@ export function deriveNoMint(market: PublicKey): PublicKey {
 }
 
 export function deriveVault(market: PublicKey): PublicKey {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("vault"), market.toBuffer()],
-    PROGRAM_ID,
-  )[0];
+  return PublicKey.findProgramAddressSync([Buffer.from("vault"), market.toBuffer()], PROGRAM_ID)[0];
 }
 
 export function deriveLpPosition(market: PublicKey, user: PublicKey): PublicKey {
@@ -33,4 +30,14 @@ export function deriveMarketPda(marketId: number): PublicKey {
   const buf = Buffer.alloc(8);
   buf.writeBigUInt64LE(BigInt(marketId));
   return PublicKey.findProgramAddressSync([Buffer.from("market"), buf], PROGRAM_ID)[0];
+}
+
+// ============================================================================
+// Multi-outcome group market PDAs (matches state.rs::GroupMarket::SEED)
+// ============================================================================
+
+export function deriveGroupPda(groupId: number | bigint): PublicKey {
+  const buf = Buffer.alloc(8);
+  buf.writeBigUInt64LE(BigInt(groupId));
+  return PublicKey.findProgramAddressSync([Buffer.from("group"), buf], PROGRAM_ID)[0];
 }

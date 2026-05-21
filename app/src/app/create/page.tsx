@@ -21,6 +21,9 @@ export default function CreateMarketPage() {
   const [durationValue, setDurationValue] = useState("30");
   const [durationUnit, setDurationUnit] = useState<"min" | "hours" | "days">("days");
   const [initialLiquidity, setInitialLiquidity] = useState("100");
+  // Initial YES price in percent (0..100). 50 = legacy default (5000 bps).
+  // Sent on-chain as basis points (5000 = 50%).
+  const [initialPricePct, setInitialPricePct] = useState("50");
   const [loading, setLoading] = useState(false);
   const program = useProgram();
   const { publicKey } = useWallet();
@@ -28,7 +31,12 @@ export default function CreateMarketPage() {
 
   // --- Computed values for simulation ---
   const durNum = parseFloat(durationValue) || 0;
-  const durSeconds = durationUnit === "min" ? durNum * 60 : durationUnit === "hours" ? durNum * 3600 : durNum * 86400;
+  const durSeconds =
+    durationUnit === "min"
+      ? durNum * 60
+      : durationUnit === "hours"
+        ? durNum * 3600
+        : durNum * 86400;
   const liquidity = parseFloat(initialLiquidity) || 0;
   const liqLamports = liquidity * 1e6;
 
@@ -54,33 +62,50 @@ export default function CreateMarketPage() {
 
       const [marketPda] = PublicKey.findProgramAddressSync(
         [Buffer.from("market"), new BN(marketId).toArrayLike(Buffer, "le", 8)],
-        program.programId
+        program.programId,
       );
       const [yesMint] = PublicKey.findProgramAddressSync(
-        [Buffer.from("yes_mint"), marketPda.toBuffer()], program.programId);
+        [Buffer.from("yes_mint"), marketPda.toBuffer()],
+        program.programId,
+      );
       const [noMint] = PublicKey.findProgramAddressSync(
-        [Buffer.from("no_mint"), marketPda.toBuffer()], program.programId);
+        [Buffer.from("no_mint"), marketPda.toBuffer()],
+        program.programId,
+      );
       const [vault] = PublicKey.findProgramAddressSync(
-        [Buffer.from("vault"), marketPda.toBuffer()], program.programId);
+        [Buffer.from("vault"), marketPda.toBuffer()],
+        program.programId,
+      );
 
       const TOKEN_METADATA_PROGRAM = METAPLEX_PROGRAM_ID;
       const [yesMetadata] = PublicKey.findProgramAddressSync(
         [Buffer.from("metadata"), TOKEN_METADATA_PROGRAM.toBuffer(), yesMint.toBuffer()],
-        TOKEN_METADATA_PROGRAM
+        TOKEN_METADATA_PROGRAM,
       );
       const [noMetadata] = PublicKey.findProgramAddressSync(
         [Buffer.from("metadata"), TOKEN_METADATA_PROGRAM.toBuffer(), noMint.toBuffer()],
-        TOKEN_METADATA_PROGRAM
+        TOKEN_METADATA_PROGRAM,
       );
 
+      // Convert percent → basis points. Default 50% → 5000 bps.
+      // The program accepts 0 (legacy 50/50) or 100..=9900 (1%..99%).
+      const pct = Math.max(1, Math.min(99, parseFloat(initialPricePct) || 50));
+      const initialPriceBps = Math.round(pct * 100);
+
       const tx1 = await (program.methods as any)
-        .initializeMarket(new BN(marketId), new BN(endTs), name)
+        .initializeMarket(new BN(marketId), new BN(endTs), name, initialPriceBps)
         .accounts({
-          authority: publicKey, market: marketPda, collateralMint: USDC_MINT,
-          yesMint, noMint, vault,
-          yesMetadata, noMetadata,
+          authority: publicKey,
+          market: marketPda,
+          collateralMint: USDC_MINT,
+          yesMint,
+          noMint,
+          vault,
+          yesMetadata,
+          noMetadata,
           tokenMetadataProgram: TOKEN_METADATA_PROGRAM,
-          systemProgram: SystemProgram.programId, tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
           rent: new PublicKey("SysvarRent111111111111111111111111111111111"),
         })
         .preInstructions([ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })])
@@ -95,14 +120,19 @@ export default function CreateMarketPage() {
         const userUsdc = await getAssociatedTokenAddress(USDC_MINT, publicKey);
         const [lpPda] = PublicKey.findProgramAddressSync(
           [Buffer.from("lp"), marketPda.toBuffer(), publicKey.toBuffer()],
-          program.programId
+          program.programId,
         );
         const tx2 = await (program.methods as any)
           .depositLiquidity(new BN(Math.floor(liqLamports)))
           .accounts({
-            signer: publicKey, market: marketPda, collateralMint: USDC_MINT,
-            vault, userCollateral: userUsdc, lpPosition: lpPda,
-            systemProgram: SystemProgram.programId, tokenProgram: TOKEN_PROGRAM_ID,
+            signer: publicKey,
+            market: marketPda,
+            collateralMint: USDC_MINT,
+            vault,
+            userCollateral: userUsdc,
+            lpPosition: lpPda,
+            systemProgram: SystemProgram.programId,
+            tokenProgram: TOKEN_PROGRAM_ID,
           })
           .preInstructions([ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })])
           .rpc();
@@ -114,7 +144,11 @@ export default function CreateMarketPage() {
       router.push(`/market/${marketId}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes("WalletSign") || msg.includes("User rejected")) { toast.info("Transaction cancelled"); setLoading(false); return; }
+      if (msg.includes("WalletSign") || msg.includes("User rejected")) {
+        toast.info("Transaction cancelled");
+        setLoading(false);
+        return;
+      }
       toast.error("Creation failed", { description: msg.slice(0, 150) });
     } finally {
       setLoading(false);
@@ -142,7 +176,9 @@ export default function CreateMarketPage() {
             {/* Question */}
             <div>
               <div className="text-caption mb-[8px]">QUESTION</div>
-              <div className={`border rounded-lg px-[12px] transition-all duration-[120ms] ${name.length > 64 ? "border-no" : "border-line-2 focus-within:border-muted"}`}>
+              <div
+                className={`border rounded-lg px-[12px] transition-all duration-[120ms] ${name.length > 64 ? "border-no" : "border-line-2 focus-within:border-muted"}`}
+              >
                 <input
                   className="bg-transparent border-none outline-none text-text-hi text-[14px] py-[10px] w-full"
                   placeholder="Will BTC hit $200k by December?"
@@ -152,7 +188,11 @@ export default function CreateMarketPage() {
                 />
               </div>
               <div className="flex justify-end mt-[4px]">
-                <span className={`text-[10px] font-mono ${name.length > 64 ? "text-no" : "text-muted"}`}>{name.length}/64</span>
+                <span
+                  className={`text-[10px] font-mono ${name.length > 64 ? "text-no" : "text-muted"}`}
+                >
+                  {name.length}/64
+                </span>
               </div>
             </div>
 
@@ -182,10 +222,25 @@ export default function CreateMarketPage() {
 
               <div className="flex gap-[6px] mb-[8px]">
                 {(durationUnit === "min"
-                  ? [{ label: "10m", val: "10" }, { label: "30m", val: "30" }, { label: "45m", val: "45" }, { label: "60m", val: "60" }]
+                  ? [
+                      { label: "10m", val: "10" },
+                      { label: "30m", val: "30" },
+                      { label: "45m", val: "45" },
+                      { label: "60m", val: "60" },
+                    ]
                   : durationUnit === "hours"
-                    ? [{ label: "2h", val: "2" }, { label: "6h", val: "6" }, { label: "12h", val: "12" }, { label: "24h", val: "24" }]
-                    : [{ label: "1d", val: "1" }, { label: "7d", val: "7" }, { label: "14d", val: "14" }, { label: "30d", val: "30" }]
+                    ? [
+                        { label: "2h", val: "2" },
+                        { label: "6h", val: "6" },
+                        { label: "12h", val: "12" },
+                        { label: "24h", val: "24" },
+                      ]
+                    : [
+                        { label: "1d", val: "1" },
+                        { label: "7d", val: "7" },
+                        { label: "14d", val: "14" },
+                        { label: "30d", val: "30" },
+                      ]
                 ).map((p) => (
                   <button
                     key={p.label}
@@ -222,9 +277,32 @@ export default function CreateMarketPage() {
               step="1"
             />
 
+            {/* Initial YES price (% — 50% is the legacy default; pick a different
+                value if this market belongs to a multi-outcome group: 100/N) */}
+            <AmountInput
+              label="INITIAL YES PRICE"
+              unit="%"
+              type="number"
+              placeholder="50"
+              value={initialPricePct}
+              onChange={(e) => setInitialPricePct(e.target.value)}
+              min="1"
+              max="99"
+              step="0.01"
+            />
+            <p className="text-[10px] text-muted/70 font-mono -mt-[8px]">
+              50% = standard binary market. For a group leg of N outcomes, use {"{100 / N}"}% (e.g.
+              7.14 for 14 teams).
+            </p>
+
             {expires && (
               <p className="text-[11px] text-muted font-mono">
-                Expires {expires.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}{" "}
+                Expires{" "}
+                {expires.toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}{" "}
                 {expires.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
               </p>
             )}
@@ -239,8 +317,26 @@ export default function CreateMarketPage() {
             </Button>
 
             {!publicKey && (
-              <p className="text-[11px] text-muted font-mono text-center">Connect wallet to create.</p>
+              <p className="text-[11px] text-muted font-mono text-center">
+                Connect wallet to create.
+              </p>
             )}
+
+            <div className="pt-[8px] border-t border-line">
+              <p className="text-[10px] font-mono text-muted uppercase tracking-[0.05em] mb-[4px]">
+                Multi-outcome (N-team / N-candidate)
+              </p>
+              <p className="text-[11px] text-muted font-mono mb-[8px]">
+                Create N binary markets (this form, one per leg) seeded at 100/N% each, then wrap
+                them with a GroupMarket via{" "}
+                <code className="text-text-hi">initialize_group_market</code> +{" "}
+                <code className="text-text-hi">attach_leg_to_group</code>.
+              </p>
+              <p className="text-[10px] text-muted/60 font-mono">
+                UI-side group creation is on the roadmap; for now, see{" "}
+                <code className="text-text-hi">anchor/scripts/</code> for batch setup.
+              </p>
+            </div>
           </div>
 
           {/* Right: LP simulation */}
@@ -251,19 +347,9 @@ export default function CreateMarketPage() {
               <>
                 <MetaRow label="Pool Value" value={`$${formatUsdc(pv)}`} />
                 <MetaRow label="Daily LVR cost" value={`$${formatUsdc(dailyLvr)}`} />
-                <MetaRow
-                  label="Expected return"
-                  value={`~$${formatUsdc(expectedReturn)}`}
-                />
-                <MetaRow
-                  label="Expected loss (LVR)"
-                  value={`~$${formatUsdc(expectedLoss)}`}
-                />
-                <MetaRow
-                  label="Return %"
-                  value="-50.0%"
-                  last
-                />
+                <MetaRow label="Expected return" value={`~$${formatUsdc(expectedReturn)}`} />
+                <MetaRow label="Expected loss (LVR)" value={`~$${formatUsdc(expectedLoss)}`} />
+                <MetaRow label="Return %" value="-50.0%" last />
 
                 {/* Visual bar */}
                 <div className="pt-[8px]">
@@ -277,7 +363,8 @@ export default function CreateMarketPage() {
                 </div>
 
                 <p className="text-[10px] text-muted/60 font-mono pt-[4px]">
-                  Based on E[W_T] = W_0/2 (random walk). Actual returns depend on trading activity and price path.
+                  Based on E[W_T] = W_0/2 (random walk). Actual returns depend on trading activity
+                  and price path.
                 </p>
               </>
             ) : (

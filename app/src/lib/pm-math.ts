@@ -11,15 +11,19 @@ export function i80f48ToNumber(raw: { toString(): string } | bigint): number {
 
 /** Standard normal PDF */
 export function phi(z: number): number {
-  return Math.exp(-z * z / 2) / Math.sqrt(2 * Math.PI);
+  return Math.exp((-z * z) / 2) / Math.sqrt(2 * Math.PI);
 }
 
 /** Standard normal CDF (Abramowitz & Stegun approximation) */
 export function capitalPhi(z: number): number {
   if (z < -8) return 0;
   if (z > 8) return 1;
-  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741;
-  const a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
+  const a1 = 0.254829592,
+    a2 = -0.284496736,
+    a3 = 1.421413741;
+  const a4 = -1.453152027,
+    a5 = 1.061405429,
+    p = 0.3275911;
   const sign = z < 0 ? -1 : 1;
   const x = Math.abs(z) / Math.SQRT2;
   const t = 1 / (1 + p * x);
@@ -46,18 +50,20 @@ function phiInv(p: number): number {
   if (p === 0.5) return 0;
 
   const a = [
-    -3.969683028665376e1, 2.209460984245205e2, -2.759285104469687e2,
-    1.383577518672690e2, -3.066479806614716e1, 2.506628277459239e0,
+    -3.969683028665376e1, 2.209460984245205e2, -2.759285104469687e2, 1.38357751867269e2,
+    -3.066479806614716e1, 2.506628277459239,
   ];
   const b = [
-    -5.447609879822406e1, 1.615858368580409e2, -1.556989798598866e2,
-    6.680131188771972e1, -1.328068155288572e1,
+    -5.447609879822406e1, 1.615858368580409e2, -1.556989798598866e2, 6.680131188771972e1,
+    -1.328068155288572e1,
   ];
 
   const q = p - 0.5;
   const r = q * q;
-  return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q /
-    ((((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1));
+  return (
+    ((((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q) /
+    (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1)
+  );
 }
 
 /** Format USDC amount (6 decimals) */
@@ -77,7 +83,7 @@ export function estimateSwapOutput(
   reserveNo: number,
   lEff: number,
   amountIn: number,
-  side: "yes" | "no"
+  side: "yes" | "no",
 ): { output: number; priceAfter: number; priceImpact: number } {
   if (lEff <= 0 || amountIn <= 0) {
     return { output: 0, priceAfter: 0.5, priceImpact: 0 };
@@ -111,22 +117,26 @@ export function estimateSwapOutput(
 }
 
 function findXFromY(yTarget: number, lEff: number): number {
-  let lo = -6, hi = 6;
+  let lo = -6,
+    hi = 6;
   for (let i = 0; i < 40; i++) {
     const mid = (lo + hi) / 2;
     const yMid = lEff * (mid * capitalPhi(mid) + phi(mid));
-    if (yMid < yTarget) lo = mid; else hi = mid;
+    if (yMid < yTarget) lo = mid;
+    else hi = mid;
   }
   const u = (lo + hi) / 2;
   return lEff * (u * capitalPhi(u) + phi(u) - u);
 }
 
 function findYFromX(xTarget: number, lEff: number): number {
-  let lo = -6, hi = 6;
+  let lo = -6,
+    hi = 6;
   for (let i = 0; i < 40; i++) {
     const mid = (lo + hi) / 2;
     const xMid = lEff * (mid * capitalPhi(mid) + phi(mid) - mid);
-    if (xMid > xTarget) lo = mid; else hi = mid;
+    if (xMid > xTarget) lo = mid;
+    else hi = mid;
   }
   const u = (lo + hi) / 2;
   return lEff * (u * capitalPhi(u) + phi(u));
@@ -140,7 +150,7 @@ function findYFromX(xTarget: number, lEff: number): number {
 export function expectedDailyLvr(price: number, lEff: number, remainingSecs: number): number {
   if (remainingSecs <= 0) return 0;
   const v = poolValue(price, lEff);
-  return v / (2 * remainingSecs / 86400);
+  return v / ((2 * remainingSecs) / 86400);
 }
 
 /** Terminal wealth expectation: E[W_T] = W_0 / 2. Paper section 8. */
@@ -166,14 +176,15 @@ export function simulateLpDeposit(
       newShares: amount,
       poolSharePct: 100,
       newPoolValue: amount,
-      estDailyYield: remainingSecs > 0 ? amount / (2 * remainingSecs / 86400) : 0,
+      estDailyYield: remainingSecs > 0 ? amount / ((2 * remainingSecs) / 86400) : 0,
     };
   }
 
   const currentValue = poolValue(price, lEff);
-  if (currentValue <= 0) return { newShares: 0, poolSharePct: 0, newPoolValue: 0, estDailyYield: 0 };
+  if (currentValue <= 0)
+    return { newShares: 0, poolSharePct: 0, newPoolValue: 0, estDailyYield: 0 };
 
-  const newShares = amount * totalShares / currentValue;
+  const newShares = (amount * totalShares) / currentValue;
   const newTotal = totalShares + newShares;
   const poolSharePct = (newShares / newTotal) * 100;
 
@@ -183,9 +194,8 @@ export function simulateLpDeposit(
   const newLEff = newLZero * Math.sqrt(Math.max(remainingSecs, 1));
   const newPoolValue = poolValue(price, newLEff);
 
-  const estDailyYield = remainingSecs > 0
-    ? (newPoolValue * poolSharePct / 100) / (2 * remainingSecs / 86400)
-    : 0;
+  const estDailyYield =
+    remainingSecs > 0 ? (newPoolValue * poolSharePct) / 100 / ((2 * remainingSecs) / 86400) : 0;
 
   return { newShares, poolSharePct, newPoolValue, estDailyYield };
 }
@@ -215,7 +225,18 @@ export function lpPositionPnl(
   reserveYes: number = 0,
   reserveNo: number = 0,
 ): LpPnlResult {
-  const empty: LpPnlResult = { currentValue: 0, pnl: 0, pnlPct: 0, poolSharePct: 0, poolValue: 0, residualsValue: 0, totalYes: 0, totalNo: 0, ifYesWins: 0, ifNoWins: 0 };
+  const empty: LpPnlResult = {
+    currentValue: 0,
+    pnl: 0,
+    pnlPct: 0,
+    poolSharePct: 0,
+    poolValue: 0,
+    residualsValue: 0,
+    totalYes: 0,
+    totalNo: 0,
+    ifYesWins: 0,
+    ifNoWins: 0,
+  };
   if (totalShares <= 0 || shares <= 0) return empty;
 
   const frac = shares / totalShares;
@@ -247,10 +268,21 @@ export function lpPositionPnl(
   const residualsValue = tokensYes * price + tokensNo * (1 - price);
 
   // Resolution scenarios: all reserves distributed, each winning token = 1 USDC
-  const ifYesWins = totalYes;  // all YES tokens worth 1 USDC each
-  const ifNoWins = totalNo;    // all NO tokens worth 1 USDC each
+  const ifYesWins = totalYes; // all YES tokens worth 1 USDC each
+  const ifNoWins = totalNo; // all NO tokens worth 1 USDC each
 
-  return { currentValue, pnl, pnlPct, poolSharePct, poolValue: myPoolValue, residualsValue, totalYes, totalNo, ifYesWins, ifNoWins };
+  return {
+    currentValue,
+    pnl,
+    pnlPct,
+    poolSharePct,
+    poolValue: myPoolValue,
+    residualsValue,
+    totalYes,
+    totalNo,
+    ifYesWins,
+    ifNoWins,
+  };
 }
 
 export interface LpPnlResult {
@@ -268,6 +300,76 @@ export interface LpPnlResult {
 
 /** Phi_inv exported for LP simulations */
 export { phiInv };
+
+// ============================================================================
+// Multi-outcome (GroupMarket) helpers
+//
+// Mirror of the Rust GroupMarket math in state.rs. For display + client-side
+// validation only — the on-chain program enforces these invariants.
+// ============================================================================
+
+/**
+ * Seed price for each leg of an N-leg group, in basis points.
+ * Matches Rust: GroupMarket::expected_leg_initial_price_bps().
+ * Floor division — residual (< N bps) absorbed by the off-chain dispatcher.
+ */
+export function expectedLegSeedBps(legCount: number): number {
+  if (legCount <= 0) return 0;
+  return Math.floor(10_000 / legCount);
+}
+
+/** Same as above, returned as a probability (0..1). */
+export function expectedLegSeedPrice(legCount: number): number {
+  return expectedLegSeedBps(legCount) / 10_000;
+}
+
+/** Σ p_i — sum of YES probabilities across all legs of a group. */
+export function sumProbabilities(prices: number[]): number {
+  return prices.reduce((acc, p) => acc + p, 0);
+}
+
+/**
+ * |Σ - 1| in percentage points. Useful as a "house health" indicator —
+ * the off-chain arb daemon should keep this near 0.
+ * Returns 0 if there are no prices.
+ */
+export function groupDriftPct(prices: number[]): number {
+  if (prices.length === 0) return 0;
+  const s = sumProbabilities(prices);
+  return Math.abs(s - 1) * 100;
+}
+
+/**
+ * Split a total USDC budget equally across N legs (in micro-USDC, 6 decimals).
+ * Floor split; residual goes to leg 0 so Σ allocations = totalLamports exactly.
+ */
+export function legBudgetAllocations(legCount: number, totalLamports: number): number[] {
+  if (legCount <= 0) return [];
+  const base = Math.floor(totalLamports / legCount);
+  const residual = totalLamports - base * legCount;
+  const out = new Array(legCount).fill(base);
+  if (out.length > 0) out[0] += residual;
+  return out;
+}
+
+/**
+ * If user bets `betUsd` on a single leg of a group, by how many percentage
+ * points does Σ p_i drift? Approximation using estimateSwapOutput on that
+ * leg in isolation. Off-chain — informational, not authoritative.
+ */
+export function expectedDriftAfterBet(
+  legReserveYes: number,
+  legReserveNo: number,
+  legLEff: number,
+  betUsd: number,
+  side: "yes" | "no" = "yes",
+): number {
+  if (legLEff <= 0 || betUsd <= 0) return 0;
+  const before = priceFromReserves(legReserveYes, legReserveNo, legLEff);
+  const sim = estimateSwapOutput(legReserveYes, legReserveNo, legLEff, betUsd, side);
+  const after = sim.priceAfter;
+  return Math.abs(after - before);
+}
 
 /** Format time remaining */
 export function formatTimeRemaining(endTs: number): string {

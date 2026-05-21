@@ -32,6 +32,42 @@
       "args": []
     },
     {
+      "name": "attach_leg_to_group",
+      "docs": [
+        "Attach an existing binary Market PDA to a leg slot of a GroupMarket.",
+        "Enforces same authority, same end_ts, and seed price = 10_000/N bps."
+      ],
+      "discriminator": [
+        28,
+        153,
+        111,
+        127,
+        89,
+        110,
+        164,
+        253
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "group_market",
+          "writable": true
+        },
+        {
+          "name": "market"
+        }
+      ],
+      "args": [
+        {
+          "name": "leg_index",
+          "type": "u8"
+        }
+      ]
+    },
+    {
       "name": "claim_lp_residuals",
       "docs": [
         "Claim pending YES+NO residuals accrued to an LP position.",
@@ -276,10 +312,83 @@
       ]
     },
     {
+      "name": "initialize_group_market",
+      "docs": [
+        "Create a GroupMarket wrapping `leg_count` binary markets as a",
+        "categorical (multi-outcome) prediction market. Legs are attached",
+        "separately via `attach_leg_to_group` and must each be seeded at",
+        "`10_000 / leg_count` bps so Σ p_i = 1 at open."
+      ],
+      "discriminator": [
+        117,
+        158,
+        140,
+        184,
+        36,
+        187,
+        244,
+        215
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "group_market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  114,
+                  111,
+                  117,
+                  112
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "group_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "group_id",
+          "type": "u64"
+        },
+        {
+          "name": "end_ts",
+          "type": "i64"
+        },
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "leg_count",
+          "type": "u8"
+        }
+      ]
+    },
+    {
       "name": "initialize_market",
       "docs": [
         "Create a new prediction market with YES/NO mints, a USDC vault,",
-        "and Metaplex token metadata for wallet display."
+        "and Metaplex token metadata for wallet display.",
+        "",
+        "`initial_price_bps` seeds the YES price at first deposit. Pass `0` for",
+        "the legacy 50/50 default. For multi-outcome groups, pass `10_000 / N`."
       ],
       "discriminator": [
         35,
@@ -434,6 +543,10 @@
         {
           "name": "name",
           "type": "string"
+        },
+        {
+          "name": "initial_price_bps",
+          "type": "u16"
         }
       ]
     },
@@ -509,6 +622,72 @@
         {
           "name": "amount",
           "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "resolve_group",
+      "docs": [
+        "Resolve a GroupMarket: authority picks the winning leg.",
+        "Must run after expiration and after all legs are attached."
+      ],
+      "discriminator": [
+        61,
+        207,
+        24,
+        75,
+        145,
+        186,
+        16,
+        118
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "group_market",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "winning_leg",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "resolve_group_leg",
+      "docs": [
+        "Cascade-resolve one leg of a resolved GroupMarket. Permissionless:",
+        "the group's `winning_leg` is the source of truth (winning → Yes,",
+        "all others → No)."
+      ],
+      "discriminator": [
+        177,
+        186,
+        101,
+        235,
+        171,
+        48,
+        122,
+        23
+      ],
+      "accounts": [
+        {
+          "name": "group_market"
+        },
+        {
+          "name": "market",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "leg_index",
+          "type": "u8"
         }
       ]
     },
@@ -762,6 +941,19 @@
   ],
   "accounts": [
     {
+      "name": "GroupMarket",
+      "discriminator": [
+        64,
+        120,
+        105,
+        242,
+        92,
+        182,
+        3,
+        113
+      ]
+    },
+    {
       "name": "LpPosition",
       "discriminator": [
         105,
@@ -888,9 +1080,137 @@
       "code": 6016,
       "name": "InvalidName",
       "msg": "Invalid name: must be 1-64 bytes"
+    },
+    {
+      "code": 6017,
+      "name": "InvalidLegCount",
+      "msg": "Invalid leg count: must be between 2 and MAX_LEGS"
+    },
+    {
+      "code": 6018,
+      "name": "InvalidLegIndex",
+      "msg": "Invalid leg index: out of bounds for this group"
+    },
+    {
+      "code": 6019,
+      "name": "LegAlreadyAttached",
+      "msg": "Leg slot already attached"
+    },
+    {
+      "code": 6020,
+      "name": "LegMismatch",
+      "msg": "Leg market does not match the slot stored on the group"
+    },
+    {
+      "code": 6021,
+      "name": "GroupAlreadyResolved",
+      "msg": "Group market already resolved"
+    },
+    {
+      "code": 6022,
+      "name": "GroupNotResolved",
+      "msg": "Group market not yet resolved"
+    },
+    {
+      "code": 6023,
+      "name": "GroupNotExpired",
+      "msg": "Group market not yet expired"
+    },
+    {
+      "code": 6024,
+      "name": "GroupIncomplete",
+      "msg": "Group market has missing legs (must attach all N legs first)"
+    },
+    {
+      "code": 6025,
+      "name": "LegEndTsMismatch",
+      "msg": "Leg market end_ts does not match group end_ts"
     }
   ],
   "types": [
+    {
+      "name": "GroupMarket",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "group_id",
+            "type": "u64"
+          },
+          {
+            "name": "start_ts",
+            "type": "i64"
+          },
+          {
+            "name": "end_ts",
+            "type": "i64"
+          },
+          {
+            "name": "leg_count",
+            "docs": [
+              "Actual number of legs (≤ MAX_LEGS)."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "legs",
+            "docs": [
+              "Pubkeys of attached binary Market PDAs. Slots [0..leg_count) must be",
+              "populated before resolution. Pubkey::default() = empty slot."
+            ],
+            "type": {
+              "array": [
+                "pubkey",
+                32
+              ]
+            }
+          },
+          {
+            "name": "resolved",
+            "type": "bool"
+          },
+          {
+            "name": "winning_leg",
+            "docs": [
+              "Winning leg index (0..leg_count). NO_WINNING_LEG (0xFF) = unresolved."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "name",
+            "docs": [
+              "Human-readable group name (UTF-8, zero-padded)."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          },
+          {
+            "name": "_reserved",
+            "docs": [
+              "Reserved for future expansion."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
     {
       "name": "LZeroSuggestion",
       "type": {
@@ -1052,6 +1372,10 @@
                 64
               ]
             }
+          },
+          {
+            "name": "initial_price_bps",
+            "type": "u16"
           }
         ]
       }
