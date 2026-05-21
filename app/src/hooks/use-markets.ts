@@ -53,18 +53,27 @@ export function useMarkets() {
         const x = i80f48ToNumber(m.reserveYes);
         const y = i80f48ToNumber(m.reserveNo);
 
+        // The on-chain reserves (x, y) reflect the pool state at last_accrual_ts.
+        // To display the *real* current price we must pair them with L_eff at
+        // that same timestamp — otherwise Φ((y-x)/L_eff(now)) under/overshoots
+        // mechanically whenever `accrue` hasn't been called recently, because
+        // L_eff decays with time but the reserves stay frozen between accruals.
+        const lastAccrualTs = bnToNum(m.lastAccrualTs);
+        const lEffAtLastAccrual =
+          lZero * Math.sqrt(Math.max(endTs - lastAccrualTs, 1));
+
         let price: number;
         if (m.resolved) {
           price = m.winningSide === 1 ? 1 : m.winningSide === 2 ? 0 : 0.5;
         } else if (isExpired || (x === 0 && y === 0)) {
-          // Expired or reserves drained: use last accrual price from reserves ratio
-          // Compute price using full duration L_eff to get the "last real price"
-          const fullRemaining = Math.max(endTs - bnToNum(m.lastAccrualTs), 1);
-          const fullLEff = lZero * Math.sqrt(fullRemaining);
-          const xLast = i80f48ToNumber(m.reserveYes);
-          const yLast = i80f48ToNumber(m.reserveNo);
-          if (fullLEff > 0 && (xLast > 0 || yLast > 0)) {
-            price = Math.max(0.001, Math.min(0.999, priceFromReserves(xLast, yLast, fullLEff)));
+          // Expired or reserves drained: use last-accrual L_eff for the
+          // "last real price" (same logic, just narrower fallback for
+          // reserves=0 via cumulative residuals).
+          if (lEffAtLastAccrual > 0 && (x > 0 || y > 0)) {
+            price = Math.max(
+              0.001,
+              Math.min(0.999, priceFromReserves(x, y, lEffAtLastAccrual)),
+            );
           } else {
             // Reserves are 0 — use cumulative residuals ratio as proxy
             const cumYes = i80f48ToNumber(m.cumYesPerShare);
@@ -77,9 +86,12 @@ export function useMarkets() {
             }
           }
         } else {
-          price = lEff > 0 && (x > 0 || y > 0)
-            ? priceFromReserves(x, y, lEff)
-            : 0.5;
+          // Active market: real price uses lEffAtLastAccrual since reserves
+          // haven't been rebased since the last accrue.
+          price =
+            lEffAtLastAccrual > 0 && (x > 0 || y > 0)
+              ? priceFromReserves(x, y, lEffAtLastAccrual)
+              : 0.5;
         }
 
         // Decode name: [u8; 64] → trim trailing zeros → UTF-8 string
